@@ -1,4 +1,6 @@
-import { serverSupabaseClient } from "../utils/supabaseClient";
+import { serverSupabaseClient } from "../../utils/supabaseClient";
+
+
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);

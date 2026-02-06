@@ -16,20 +16,29 @@
         <li
           v-for="conv in conversations"
           :key="conv.id"
-          @click="selectConversation(conv.id)"
-          class="p-2 rounded-md cursor-pointer transition-all mb-1 text-sm"
+          class="group flex justify-between items-center p-2 rounded-md cursor-pointer transition-all mb-1 text-sm"
           :class="conv.id === activeConversationId
             ? 'bg-blue-100 text-blue-800 font-medium'
             : 'hover:bg-gray-100'"
         >
-          {{ conv.title || 'Untitled Chat' }}
+          <span @click="selectConversation(conv.id)" class="flex-1 truncate">
+            {{ conv.title || 'Untitled Chat' }}
+          </span>
+          <button
+            @click.stop.prevent="deleteConversation(conv.id)"
+            class="ml-2"
+            title="Delete"
+            small
+          >
+            🗑
+          </button>
         </li>
       </ul>
     </aside>
 
     <!-- Main Chat -->
     <main class="flex-1 p-6 flex flex-col max-w-3xl mx-auto">
-      <h1 class="text-3xl font-bold mb-6 text-center text-blue-700">
+      <h1 class="mt-8 text-3xl font-bold mb-6 text-center text-blue-700">
         🤖 Skippybot
       </h1>
 
@@ -65,6 +74,34 @@ import ChatInput from '~/components/ChatInput.vue';
 const messages = ref([]);
 const activeConversationId = ref(null);
 const conversations = ref([]);
+
+
+const deleteConversation = async (conversationId) => {
+  try {
+    await $fetch(`/api/conversations/${conversationId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    conversations.value = conversations.value.filter(
+      (c) => c.id !== conversationId
+    );
+
+    // Reset active convo if it was the one deleted
+    if (activeConversationId.value === conversationId) {
+      if (conversations.value.length > 0) {
+        activeConversationId.value = conversations.value[0].id;
+        await loadMessagesForConversation(activeConversationId.value);
+      } else {
+        activeConversationId.value = null;
+        messages.value = [];
+      }
+    }
+  } catch (err) {
+    console.error('Failed to delete conversation:', err);
+  }
+};
+
 
 /**
  * Load messages for a given conversation

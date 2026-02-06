@@ -1,5 +1,5 @@
 // server/api/conversations.get.ts
-import { serverSupabaseClient } from "../utils/supabaseClient";
+import { serverSupabaseClient } from "../../utils/supabaseClient";
 
 export default defineEventHandler(async () => {
   const { data, error } = await serverSupabaseClient
