@@ -1,5 +1,5 @@
 // server/api/chats.get.ts
-import { supabase } from "../utils/supabaseClient";
+import { serverSupabaseClient } from "../utils/supabaseClient";
 
 export default defineEventHandler(async (event) => {
   const { conversationId } = getQuery(event);
@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
     return { chats: [] };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await serverSupabaseClient
     .from("chats")
     .select("*")
     .eq("session_id", conversationId)

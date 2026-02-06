@@ -1,8 +1,8 @@
 // server/api/conversations.get.ts
-import { supabase } from "../utils/supabaseClient";
+import { serverSupabaseClient } from "../utils/supabaseClient";
 
 export default defineEventHandler(async () => {
-  const { data, error } = await supabase
+  const { data, error } = await serverSupabaseClient
     .from("conversations")
     .select("*")
     .order("updated_at", { ascending: false });

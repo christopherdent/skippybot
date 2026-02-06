@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { supabaseClient } from '../utils/supabaseClient'
+import { serverSupabaseClient } from '../utils/supabaseClient'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // 1. Save user message
-  await supabaseClient
+  await serverSupabaseClient
     .from('chats')
     .insert({
       conversation_id: conversationId,
@@ -43,13 +43,34 @@ export default defineEventHandler(async (event) => {
       : ''
 
   // 3. Save assistant message
-  await supabaseClient
+  await serverSupabaseClient
     .from('chats')
     .insert({
       conversation_id: conversationId,
       role: 'assistant',
       content: reply,
     })
+
+    // Auto-title conversation if it doesn't have one yet
+const { data: conversation } = await serverSupabaseClient
+  .from('conversations')
+  .select('title')
+  .eq('id', conversationId)
+  .single()
+
+if (!conversation?.title) {
+  const title = message
+    .trim()
+    .split(/\s+/)
+    .slice(0, 7)
+    .join(' ')
+
+  await serverSupabaseClient
+    .from('conversations')
+    .update({ title })
+    .eq('id', conversationId)
+}
+
 
   return { reply }
 })

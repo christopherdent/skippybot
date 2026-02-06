@@ -102,6 +102,7 @@ const sendMessage = async (text) => {
       role: 'assistant',
       content: res.reply,
     })
+    await loadConversations();
   } catch (err) {
     console.error('Failed to send message:', err)
     messages.value.push({

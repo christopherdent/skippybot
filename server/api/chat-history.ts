@@ -1,8 +1,8 @@
 // server/api/chat-history.ts
-import { supabase } from '../utils/supabaseClient'
+import { serverSupabaseClient } from '../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
-  const { data, error } = await supabase
+  const { data, error } = await serverSupabaseClient
     .from('messages')
     .select('*')
     .order('created_at', { ascending: true })

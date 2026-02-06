@@ -1,11 +1,11 @@
 // server/api/conversations.post.ts
-import { supabase } from "../utils/supabaseClient";
+import { serverSupabaseClient } from "../utils/supabaseClient";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
   const title = (body?.title || "").trim();
 
-  const { data, error } = await supabase
+  const { data, error } = await serverSupabaseClient
     .from("conversations")
     .insert({ title: title || null })
     .select()

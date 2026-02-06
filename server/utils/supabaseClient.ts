@@ -11,4 +11,4 @@ if (!supabaseKey) {
   throw new Error('supabaseAnonKey is required.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const serverSupabaseClient = createClient(supabaseUrl, supabaseKey)
