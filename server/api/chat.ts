@@ -1,61 +1,55 @@
-import { OpenAI } from 'openai'
-import { supabase } from '../utils/supabaseClient'
+import OpenAI from 'openai'
+import { supabaseClient } from '../utils/supabaseClient'
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const openai = new OpenAI({ apiKey: config.openaiApiKey })
+  const body = await readBody(event)
+  const { message, conversationId } = body
 
-  try {
-    const body = await readBody(event)
-    const chatHistory = body.messages || []
-    const sessionId = body.sessionId || 'default-session'
+  if (!message || !conversationId) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Missing conversationId or message',
+    })
+  }
 
-    // ...existing code...
-
-    // Validate chat history
-    if (!Array.isArray(chatHistory) || chatHistory.length === 0) {
-      throw createError({ statusCode: 400, message: 'Invalid or empty chat history' })
-    }
-
-    // Validate each message has required fields
-    const validMessages = chatHistory.every(
-      msg => msg.role && msg.content
-    )
-    if (!validMessages) {
-      throw createError({ statusCode: 400, message: 'Messages must have role and content' })
-    }
-
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: chatHistory,
+  // 1. Save user message
+  await supabaseClient
+    .from('chats')
+    .insert({
+      conversation_id: conversationId,
+      role: 'user',
+      content: message,
     })
 
-    const reply = response.choices[0].message.content
-    
-    // Handle null content from OpenAI
-    if (!reply) {
-      throw createError({ statusCode: 500, message: 'No response content from OpenAI' })
-    }
+  // 2. Call OpenAI
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini', // fast + cheap for now
+    messages: [
+      { role: 'system', content: 'You are Skippy, a helpful assistant.' },
+      { role: 'user', content: message },
+    ],
+  })
 
-    // Save both user and assistant messages to Supabase
-    const inserts = [
-      {
-        session_id: sessionId,
-        role: 'user',
-        content: chatHistory[chatHistory.length - 1].content,
-      },
-      {
-        session_id: sessionId,
-        role: 'assistant',
-        content: reply,
-      },
-    ]
+  const reply =
+    completion.choices &&
+    completion.choices[0] &&
+    completion.choices[0].message &&
+    typeof completion.choices[0].message.content === 'string'
+      ? completion.choices[0].message.content
+      : ''
 
-    await supabase.from('chats').insert(inserts)
+  // 3. Save assistant message
+  await supabaseClient
+    .from('chats')
+    .insert({
+      conversation_id: conversationId,
+      role: 'assistant',
+      content: reply,
+    })
 
-    return { reply }
-  } catch (error) {
-    console.error('Chat error:', error)
-    throw error
-  }
+  return { reply }
 })
