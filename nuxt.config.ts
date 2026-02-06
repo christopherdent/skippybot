@@ -24,5 +24,16 @@ export default defineNuxtConfig({
         braceStyle: '1tbs'
       }
     }
+  },
+
+  runtimeConfig: {
+    // Private keys (only available on server-side)
+    openaiApiKey: process.env.OPENAI_API_KEY,
+    supabaseUrl: process.env.SUPABASE_URL,
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+    // Public keys that are exposed to client-side
+    public: {
+      // Add any public config here if needed
+    }
   }
 })

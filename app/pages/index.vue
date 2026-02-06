@@ -15,16 +15,54 @@
 <script setup>
 import ChatInput from '~/components/ChatInput.vue'
 
+const loadChatHistory = async () => {
+  try {
+    const res = await $fetch('/api/chat-history')
+    messages.value = res.messages || []
+  } catch (e) {
+    console.error('Failed to load chat history:', e)
+  }
+}
+
+
+
 const messages = ref([])
 
-async function sendMessage(content) {
-  messages.value.push({ role: 'user', content })
+const sendMessage = async () => {
+  if (!newMessage.value.trim()) return
 
-  const response = await $fetch('/api/chat', {
-    method: 'POST',
-    body: { messages: messages.value }
-  })
+  const userMessage = {
+    role: 'user',
+    content: newMessage.value.trim(),
+  }
 
-  messages.value.push({ role: 'assistant', content: response.reply })
+  messages.value.push(userMessage)
+  newMessage.value = ''
+
+  try {
+    const res = await $fetch('/api/chat', {
+      method: 'POST',
+      body: {
+        messages: messages.value,
+      },
+    })
+
+    messages.value.push({
+      role: 'assistant',
+      content: res.reply,
+    })
+  } catch (e) {
+    console.error('Failed to send message:', e)
+    messages.value.push({
+      role: 'assistant',
+      content: 'Sorry, I had trouble replying. Please try again.',
+    })
+  }
 }
+
+
+onMounted(async () => {
+  messages.value = await loadChatHistory()
+})
+
 </script>

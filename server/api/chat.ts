@@ -1,18 +1,61 @@
-// server/api/chat.ts
 import { OpenAI } from 'openai'
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+import { supabase } from '../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
-  console.log('Request received', body)
+  const config = useRuntimeConfig()
+  const openai = new OpenAI({ apiKey: config.openaiApiKey })
 
-  const chatHistory = body.messages || []
+  try {
+    const body = await readBody(event)
+    const chatHistory = body.messages || []
+    const sessionId = body.sessionId || 'default-session'
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: chatHistory,
-  })
+    // ...existing code...
 
-  return { reply: response.choices[0]?.message?.content ?? '' }
+    // Validate chat history
+    if (!Array.isArray(chatHistory) || chatHistory.length === 0) {
+      throw createError({ statusCode: 400, message: 'Invalid or empty chat history' })
+    }
+
+    // Validate each message has required fields
+    const validMessages = chatHistory.every(
+      msg => msg.role && msg.content
+    )
+    if (!validMessages) {
+      throw createError({ statusCode: 400, message: 'Messages must have role and content' })
+    }
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: chatHistory,
+    })
+
+    const reply = response.choices[0].message.content
+    
+    // Handle null content from OpenAI
+    if (!reply) {
+      throw createError({ statusCode: 500, message: 'No response content from OpenAI' })
+    }
+
+    // Save both user and assistant messages to Supabase
+    const inserts = [
+      {
+        session_id: sessionId,
+        role: 'user',
+        content: chatHistory[chatHistory.length - 1].content,
+      },
+      {
+        session_id: sessionId,
+        role: 'assistant',
+        content: reply,
+      },
+    ]
+
+    await supabase.from('chats').insert(inserts)
+
+    return { reply }
+  } catch (error) {
+    console.error('Chat error:', error)
+    throw error
+  }
 })
