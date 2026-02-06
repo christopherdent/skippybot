@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   await serverSupabaseClient
     .from('chats')
     .insert({
-      conversation_id: conversationId,
+      session_id: conversationId,
       role: 'user',
       content: message,
     })
@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
   await serverSupabaseClient
     .from('chats')
     .insert({
-      conversation_id: conversationId,
+      session_id: conversationId,
       role: 'assistant',
       content: reply,
     })
@@ -58,7 +58,7 @@ const { data: conversation } = await serverSupabaseClient
   .eq('id', conversationId)
   .single()
 
-if (!conversation?.title) {
+if (!conversation || !conversation.title || conversation.title.trim() === '') {
   const title = message
     .trim()
     .split(/\s+/)
@@ -67,9 +67,13 @@ if (!conversation?.title) {
 
   await serverSupabaseClient
     .from('conversations')
-    .update({ title })
+    .update({
+      title,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', conversationId)
 }
+
 
 
   return { reply }

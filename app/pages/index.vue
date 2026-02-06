@@ -1,26 +1,26 @@
 <template>
-  <div class="flex h-screen">
+  <div class="flex h-screen bg-gray-100 text-gray-800">
     <!-- Sidebar -->
-    <aside class="w-64 border-r p-4 bg-gray-50">
+    <aside class="w-72 border-r border-gray-200 bg-white p-4 flex flex-col">
       <div class="flex justify-between items-center mb-4">
-        <h2 class="font-bold">Chats</h2>
+        <h2 class="text-lg font-semibold tracking-tight">Chats</h2>
         <button
-          class="text-sm text-blue-600"
+          class="text-sm text-blue-600 hover:underline"
           @click="createConversation"
         >
           + New
         </button>
       </div>
 
-      <ul>
+      <ul class="overflow-y-auto flex-1 pr-1">
         <li
           v-for="conv in conversations"
           :key="conv.id"
           @click="selectConversation(conv.id)"
-          class="p-2 rounded cursor-pointer mb-1"
+          class="p-2 rounded-md cursor-pointer transition-all mb-1 text-sm"
           :class="conv.id === activeConversationId
-            ? 'bg-blue-100 font-semibold'
-            : 'hover:bg-gray-200'"
+            ? 'bg-blue-100 text-blue-800 font-medium'
+            : 'hover:bg-gray-100'"
         >
           {{ conv.title || 'Untitled Chat' }}
         </li>
@@ -28,32 +28,43 @@
     </aside>
 
     <!-- Main Chat -->
-    <main class="flex-1 p-4 max-w-xl mx-auto">
-      <h1 class="text-2xl font-bold mb-4">
+    <main class="flex-1 p-6 flex flex-col max-w-3xl mx-auto">
+      <h1 class="text-3xl font-bold mb-6 text-center text-blue-700">
         🤖 Skippybot
       </h1>
 
-      <div v-for="(msg, index) in messages" :key="index" class="mb-2">
-        <div class="font-bold">
-          {{ msg.role === 'user' ? 'You' : 'Skippy' }}
-        </div>
-        <div class="bg-gray-100 p-2 rounded">
-          {{ msg.content }}
+      <div class="flex-1 overflow-y-auto space-y-4">
+        <div
+          v-for="(msg, index) in messages"
+          :key="index"
+          class="space-y-1"
+        >
+          <div class="text-sm font-semibold">
+            {{ msg.role === 'user' ? 'You' : 'Skippy' }}
+          </div>
+          <div
+            class="rounded-md p-3"
+            :class="msg.role === 'user'
+              ? 'bg-blue-50 border border-blue-100'
+              : 'bg-white border border-gray-200'"
+          >
+            {{ msg.content }}
+          </div>
         </div>
       </div>
 
-      <ChatInput @send="sendMessage" class="mt-4" />
+      <ChatInput @send="sendMessage" class="mt-6" />
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import ChatInput from '~/components/ChatInput.vue'
+import { ref, onMounted } from 'vue';
+import ChatInput from '~/components/ChatInput.vue';
 
-const messages = ref([])
-const activeConversationId = ref(null)
-const conversations = ref([])
+const messages = ref([]);
+const activeConversationId = ref(null);
+const conversations = ref([]);
 
 /**
  * Load messages for a given conversation
@@ -62,32 +73,32 @@ const loadMessagesForConversation = async (conversationId) => {
   try {
     const res = await $fetch('/api/chats', {
       query: { conversationId },
-    })
+    });
 
-    messages.value = res.chats || []
+    messages.value = res.chats || [];
   } catch (err) {
-    console.error('Failed to load messages:', err)
-    messages.value = []
+    console.error('Failed to load messages:', err);
+    messages.value = [];
   }
-}
+};
 
 /**
  * Send a single message
  */
 const sendMessage = async (text) => {
-  if (!text || !text.trim()) return
+  if (!text || !text.trim()) return;
   if (!activeConversationId.value) {
-    console.error('No active conversation')
-    return
+    console.error('No active conversation');
+    return;
   }
 
-  const messageText = text.trim()
+  const messageText = text.trim();
 
   // Optimistic UI update
   messages.value.push({
     role: 'user',
     content: messageText,
-  })
+  });
 
   try {
     const res = await $fetch('/api/chat', {
@@ -96,61 +107,62 @@ const sendMessage = async (text) => {
         message: messageText,
         conversationId: activeConversationId.value,
       },
-    })
+    });
 
     messages.value.push({
       role: 'assistant',
       content: res.reply,
-    })
+    });
     await loadConversations();
   } catch (err) {
-    console.error('Failed to send message:', err)
+    console.error('Failed to send message:', err);
     messages.value.push({
       role: 'assistant',
       content: '⚠️ Something went wrong.',
-    })
+    });
   }
-}
+};
 const createConversation = async () => {
+  console.log("Creating new convo")
   try {
     const res = await $fetch('/api/conversations', {
       method: 'POST',
-    })
+    });
 
-    const convo = res.conversation
-    conversations.value.unshift(convo)
-    activeConversationId.value = convo.id
+    const convo = res.conversation;
+    conversations.value.unshift(convo);
+    activeConversationId.value = convo.id;
 
-    messages.value = []
+    messages.value = [];
   } catch (err) {
-    console.error('Failed to create conversation:', err)
+    console.error('Failed to create conversation:', err);
   }
-}
+};
 const selectConversation = async (conversationId) => {
-  activeConversationId.value = conversationId
-  await loadMessagesForConversation(conversationId)
-}
+  activeConversationId.value = conversationId;
+  await loadMessagesForConversation(conversationId);
+};
 
 
 const loadConversations = async () => {
   try {
-    const res = await $fetch('/api/conversations')
-    conversations.value = res.conversations || []
+    const res = await $fetch('/api/conversations');
+    conversations.value = res.conversations || [];
   } catch (err) {
-    console.error('Failed to load conversations:', err)
-    conversations.value = []
+    console.error('Failed to load conversations:', err);
+    conversations.value = [];
   }
-}
+};
 
 
 onMounted(async () => {
-  await loadConversations()
+  await loadConversations();
 
   if (conversations.value.length > 0) {
-    activeConversationId.value = conversations.value[0].id
-    await loadMessagesForConversation(activeConversationId.value)
+    activeConversationId.value = conversations.value[0].id;
+    await loadMessagesForConversation(activeConversationId.value);
   } else {
-    await createConversation()
+    await createConversation();
   }
 })
 

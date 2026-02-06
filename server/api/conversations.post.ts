@@ -1,13 +1,12 @@
-// server/api/conversations.post.ts
 import { serverSupabaseClient } from "../utils/supabaseClient";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const title = (body?.title || "").trim();
+  const title = body?.title?.trim() || null;  // Use null instead of "Untitled Chat"
 
   const { data, error } = await serverSupabaseClient
     .from("conversations")
-    .insert({ title: title || null })
+    .insert({ title })
     .select()
     .single();
 
