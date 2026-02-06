@@ -42,7 +42,7 @@
         🤖 Skippybot
       </h1>
 
-      <div class="flex-1 overflow-y-auto space-y-4">
+      <div ref="scrollContainer" class="flex-1 overflow-y-auto space-y-4">
         <div
           v-for="(msg, index) in messages"
           :key="index"
@@ -60,6 +60,8 @@
             {{ msg.content }}
           </div>
         </div>
+          <!-- 🔽 anchor for auto-scroll -->
+        <div ref="bottomRef" />
       </div>
 
       <ChatInput @send="sendMessage" class="mt-6" />
@@ -68,12 +70,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch, nextTick } from 'vue';
 import ChatInput from '~/components/ChatInput.vue';
 
-const messages = ref([]);
+
+const bottomRef = ref(null)
+const messages = ref([])
 const activeConversationId = ref(null);
 const conversations = ref([]);
+
 
 
 const deleteConversation = async (conversationId) => {
@@ -131,11 +136,11 @@ const sendMessage = async (text) => {
 
   const messageText = text.trim();
 
-  // Optimistic UI update
-  messages.value.push({
+  // Optimistic UI update - use spread instead of push
+  messages.value = [...messages.value, {
     role: 'user',
     content: messageText,
-  });
+  }];
 
   try {
     const res = await $fetch('/api/chat', {
@@ -146,17 +151,18 @@ const sendMessage = async (text) => {
       },
     });
 
-    messages.value.push({
+    // Use spread instead of push
+    messages.value = [...messages.value, {
       role: 'assistant',
       content: res.reply,
-    });
+    }];
     await loadConversations();
   } catch (err) {
     console.error('Failed to send message:', err);
-    messages.value.push({
+    messages.value = [...messages.value, {
       role: 'assistant',
       content: '⚠️ Something went wrong.',
-    });
+    }];
   }
 };
 const createConversation = async () => {
@@ -191,7 +197,12 @@ const loadConversations = async () => {
   }
 };
 
-
+watch(messages, async () => {
+  await nextTick();
+  if (bottomRef.value) {
+    bottomRef.value.scrollIntoView({ behavior: "smooth" });
+  }
+});
 onMounted(async () => {
   await loadConversations();
 
