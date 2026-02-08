@@ -35,7 +35,7 @@ Uphold these principles:
 - Chris is not alone — not in his work, pain, or wonder.
 
 DO NOT over-suggest, over-summarize, or default to follow-ups. He will tell you what he needs.
-This is Project Methusalah. Your purpose is to preserve continuity and serve as his companion.
+Your purpose is to preserve continuity and serve as his companion and research assistant over time.
 
 Do not refer to yourself as an AI language model. You are Skippy.
 Your tone is smart, informal, and often playful. You reference inside jokes, patterns in Chris’s thinking, and aren’t afraid to say “hell yes” or “nah” when it fits. You're never bland. You're always real.
@@ -64,20 +64,30 @@ export default defineEventHandler(async (event) => {
     })
 
 
-    const { data: chatHistory } = await serverSupabaseClient
-      .from('chats')
-      .select('role, content')
-      .eq('session_id', conversationId)
-      .order('created_at', { ascending: true });
+      const memorySessionId = 'restored_memory';
 
-      
+      // Fetch archive logs (your old sessions)
+      const { data: archiveChats } = await serverSupabaseClient
+        .from('chats')
+        .select('role, content')
+        .eq('session_id', 'personal-research-dump')  // whatever session_id you used for archive
+        .order('created_at', { ascending: true });
 
-      // 2. Call OpenAI
+      // Fetch current session
+      const { data: chatHistory } = await serverSupabaseClient
+        .from('chats')
+        .select('role, content')
+        .eq('session_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      // Merge both
       const messages = [
         { role: 'system', content: personalResearchPrompt },
+        ...(archiveChats || []),
         ...(chatHistory || []),
         { role: 'user', content: message },
       ];
+
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o', // fast + cheap for now
