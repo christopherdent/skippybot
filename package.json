@@ -9,7 +9,8 @@
     "postinstall": "nuxt prepare",
     "lint": "echo lint disabled",
     "typecheck": "echo typecheck disabled",
-    "import": "node tools/importConversations.js"
+    "import": "node tools/importConversations.js",
+    "backfill": "node tools/backfillEmbeddings.js"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.87",
