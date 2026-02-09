@@ -51,14 +51,14 @@
           <div class="text-sm font-semibold">
             {{ msg.role === 'user' ? 'You' : 'Skippy' }}
           </div>
-          <div
+          <MarkdownRenderer
+            :content="msg.content"
             class="rounded-md p-3"
             :class="msg.role === 'user'
               ? 'bg-blue-50 border border-blue-100'
               : 'bg-white border border-gray-200'"
-          >
-            {{ msg.content }}
-          </div>
+          />
+
         </div>
           <!-- 🔽 anchor for auto-scroll -->
         <div ref="bottomRef" />
@@ -72,6 +72,7 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue';
 import ChatInput from '~/components/ChatInput.vue';
+import MarkdownRenderer from '~/components/MarkdownRenderer.vue'
 
 
 const bottomRef = ref(null)
