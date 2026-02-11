@@ -5,7 +5,7 @@
     @touchend="handleTouchEnd"
   >
     <!-- Mobile header -->
-    <header class="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur md:hidden">
+    <header class="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/95 px-4 py-3 md:hidden">
       <button
         class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700"
         @click="openSidebar"
@@ -120,18 +120,26 @@
 
     <!-- Main Chat -->
     <main class="flex-1 px-4 pb-4 pt-4 md:p-6 md:max-w-3xl md:mx-auto flex flex-col w-full min-h-0">
-      <h1 class="mb-4 mt-2 text-2xl font-bold text-center text-blue-700 md:mt-8 md:text-3xl sticky top-0 z-20 bg-gray-100/95 backdrop-blur py-2">
+      <h1
+        class="sticky top-0 z-20 bg-gray-100/95 backdrop-blur overflow-hidden transition-[opacity,max-height,margin,padding] duration-300 will-change-[opacity]"
+        :class="headerCollapsed ? 'max-h-0 mb-0 py-0' : 'max-h-[55.2%] mb-4 py-2'"
+        :style="{ opacity: headerOpacity }"
+      >
         <span class="inline-flex items-center justify-center gap-2">
           <img
-            src="/images/skippy-logo.png"
+            src="/images/skippy-banner.png"
             alt="Skippy logo"
-            class="h-[2.4em] w-[2.64em]"
+            class="transform-gpu"
           />
-          <span>Skippy & Chris</span>
         </span>
       </h1>
 
-      <div ref="scrollContainer" class="flex-1 overflow-y-auto space-y-4 pb-24">
+      <div
+        v-if="hasMessages"
+        ref="scrollContainer"
+        class="flex-1 overflow-y-auto space-y-4 pb-24"
+        @scroll="handleScroll"
+      >
         <div
           v-for="(msg, index) in messages"
           :key="index"
@@ -163,8 +171,14 @@
         <div ref="bottomRef" />
       </div>
 
-      <div class="sticky bottom-0 bg-gray-100 pt-3 pb-[env(safe-area-inset-bottom)]">
-        <ChatInput :conversation-id="activeConversationId" @send="sendMessage" />
+      <div
+        :class="hasMessages
+          ? 'sticky bottom-0 bg-gray-100 pt-3 pb-[env(safe-area-inset-bottom)]'
+          : 'flex-1 flex items-start justify-center bg-gray-100 pt-8 pb-[env(safe-area-inset-bottom)]'"
+      >
+        <div :class="hasMessages ? '' : 'w-full max-w-xl pl-6'">
+          <ChatInput :conversation-id="activeConversationId" @send="sendMessage" />
+        </div>
       </div>
     </main>
   </div>
@@ -177,12 +191,28 @@ import MarkdownRenderer from '~/components/MarkdownRenderer.vue'
 
 
 const bottomRef = ref(null)
+const scrollContainer = ref(null)
 const messages = ref([])
 const activeConversationId = ref(null);
 const conversations = ref([]);
 const isSidebarOpen = ref(false);
 const touchStart = ref({ x: 0, y: 0, time: 0 });
 const showSwipeHint = ref(false);
+const headerOpacity = ref(1);
+const suppressScrollFade = ref(false);
+const headerCollapsed = ref(false);
+let headerRafId = 0;
+
+const hasMessages = computed(() => messages.value.length > 0);
+
+const resetHeaderFade = () => {
+  headerOpacity.value = 1;
+  headerCollapsed.value = false;
+  suppressScrollFade.value = true;
+  setTimeout(() => {
+    suppressScrollFade.value = false;
+  }, 300);
+};
 
 const activeConversationTitle = computed(() => {
   const active = conversations.value.find((c) => c.id === activeConversationId.value);
@@ -278,6 +308,7 @@ const loadMessagesForConversation = async (conversationId) => {
     });
 
     messages.value = res.chats || [];
+    resetHeaderFade();
   } catch (err) {
     console.error('Failed to load messages:', err);
     messages.value = [];
@@ -356,6 +387,7 @@ const createConversation = async () => {
     activeConversationId.value = convo.id;
 
     messages.value = [];
+    resetHeaderFade();
   } catch (err) {
     console.error('Failed to create conversation:', err);
   }
@@ -392,5 +424,27 @@ onMounted(async () => {
     await createConversation();
   }
 })
+
+const handleScroll = () => {
+  if (suppressScrollFade.value) return;
+  if (headerRafId) return;
+  headerRafId = requestAnimationFrame(() => {
+    headerRafId = 0;
+    const top = scrollContainer.value?.scrollTop || 0;
+    const fadeDistance = 140;
+    const next = top < 4 ? 1 : 1 - Math.min(top / fadeDistance, 1);
+    const clamped = Math.max(0, next);
+    // Hysteresis to prevent jitter around collapse threshold
+    if (!headerCollapsed.value && top > fadeDistance + 20) {
+      headerCollapsed.value = true;
+    } else if (headerCollapsed.value && top < fadeDistance - 20) {
+      headerCollapsed.value = false;
+    }
+    const targetOpacity = headerCollapsed.value ? 0 : clamped;
+    if (Math.abs(targetOpacity - headerOpacity.value) >= 0.01) {
+      headerOpacity.value = targetOpacity;
+    }
+  });
+};
 
 </script>
