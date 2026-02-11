@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex h-screen flex-col bg-gray-100 text-gray-800 md:flex-row overflow-hidden"
+    class="flex h-[100dvh] flex-col bg-gray-100 text-gray-800 md:h-screen md:flex-row overflow-hidden"
     @touchstart="handleTouchStart"
     @touchend="handleTouchEnd"
   >
@@ -119,7 +119,7 @@
     </aside>
 
     <!-- Main Chat -->
-    <main class="flex-1 px-4 pb-4 pt-4 md:p-6 md:max-w-3xl md:mx-auto flex flex-col w-full min-h-0">
+    <main class="flex-1 px-3 pb-3 pt-3 md:p-6 md:max-w-3xl md:mx-auto flex flex-col w-full min-h-0">
       <h1
         class="sticky top-0 z-20 bg-gray-100/95 backdrop-blur overflow-hidden transition-[opacity,max-height,margin,padding] duration-300 will-change-[opacity]"
         :class="headerCollapsed ? 'max-h-0 mb-0 py-0' : 'max-h-[55.2%] mb-4 py-2'"
@@ -137,7 +137,7 @@
       <div
         v-if="hasMessages"
         ref="scrollContainer"
-        class="flex-1 overflow-y-auto space-y-4 pb-24"
+        class="flex-1 overflow-y-auto space-y-4 pb-28 md:pb-24"
         @scroll="handleScroll"
       >
         <div
@@ -173,10 +173,10 @@
 
       <div
         :class="hasMessages
-          ? 'sticky bottom-0 bg-gray-100 pt-3 pb-[env(safe-area-inset-bottom)]'
-          : 'flex-1 flex items-start justify-center bg-gray-100 pt-8 pb-[env(safe-area-inset-bottom)]'"
+          ? 'fixed inset-x-0 bottom-0 z-30 bg-gray-100/95 backdrop-blur border-t border-gray-200 pt-2 pb-[calc(env(safe-area-inset-bottom)+20px)] md:sticky md:inset-x-auto'
+          : 'flex-1 flex items-start justify-center bg-gray-100 pt-6 pb-[calc(env(safe-area-inset-bottom)+20px)]'"
       >
-        <div :class="hasMessages ? '' : 'w-full max-w-xl pl-6'">
+        <div :class="hasMessages ? 'mx-auto w-full max-w-3xl px-3 md:px-0' : 'w-full max-w-xl pl-6'">
           <ChatInput :conversation-id="activeConversationId" @send="sendMessage" />
         </div>
       </div>

@@ -18,7 +18,7 @@
       </div>
     </div>
 
-    <div class="flex items-end gap-2">
+    <div class="flex items-center gap-2">
       <input
         ref="fileInput"
         type="file"
@@ -27,8 +27,19 @@
         class="hidden"
         @change="handleFiles"
       />
-      <UButton type="button" variant="ghost" @click="triggerFilePicker">
-        Add image
+      <UButton type="button" variant="ghost" @click="triggerFilePicker" aria-label="Add image">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-4 w-4"
+        >
+          <path d="M21.44 11.05l-8.49 8.49a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95l-8.49 8.49a2 2 0 0 1-2.83-2.83l8.49-8.49" />
+        </svg>
       </UButton>
       <UInput
         v-model="message"
