@@ -127,7 +127,7 @@
             alt="Skippy logo"
             class="h-[2.4em] w-[2.64em]"
           />
-          <span>Skippybot</span>
+          <span>Skippy & Chris</span>
         </span>
       </h1>
 
