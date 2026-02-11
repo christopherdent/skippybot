@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex min-h-screen flex-col bg-gray-100 text-gray-800 md:flex-row"
+    class="flex h-screen flex-col bg-gray-100 text-gray-800 md:flex-row overflow-hidden"
     @touchstart="handleTouchStart"
     @touchend="handleTouchEnd"
   >
@@ -83,7 +83,7 @@
     </div>
 
     <!-- Desktop sidebar -->
-    <aside class="hidden w-72 border-r border-gray-200 bg-white p-4 md:flex md:flex-col">
+    <aside class="hidden h-screen w-72 border-r border-gray-200 bg-white p-4 md:flex md:flex-col overflow-hidden">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-lg font-semibold tracking-tight">Chats</h2>
         <button
@@ -119,9 +119,16 @@
     </aside>
 
     <!-- Main Chat -->
-    <main class="flex-1 px-4 pb-4 pt-4 md:p-6 md:max-w-3xl md:mx-auto flex flex-col w-full">
-      <h1 class="mb-4 mt-2 text-2xl font-bold text-center text-blue-700 md:mt-8 md:text-3xl">
-        🤖 Skippybot
+    <main class="flex-1 px-4 pb-4 pt-4 md:p-6 md:max-w-3xl md:mx-auto flex flex-col w-full min-h-0">
+      <h1 class="mb-4 mt-2 text-2xl font-bold text-center text-blue-700 md:mt-8 md:text-3xl sticky top-0 z-20 bg-gray-100/95 backdrop-blur py-2">
+        <span class="inline-flex items-center justify-center gap-2">
+          <img
+            src="/images/skippy-logo.png"
+            alt="Skippy logo"
+            class="h-[2.4em] w-[2.64em]"
+          />
+          <span>Skippybot</span>
+        </span>
       </h1>
 
       <div ref="scrollContainer" class="flex-1 overflow-y-auto space-y-4 pb-24">
