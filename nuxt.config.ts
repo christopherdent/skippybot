@@ -2,7 +2,8 @@
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
-    '@nuxt/ui'
+    '@nuxt/ui',
+    '@nuxtjs/supabase'
   ],
 
   devtools: {
@@ -10,10 +11,6 @@ export default defineNuxtConfig({
   },
 
   css: ['~/assets/css/main.css'],
-
-  routeRules: {
-    '/': { prerender: true }
-  },
 
   compatibilityDate: '2025-01-15',
 
@@ -29,11 +26,20 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Private keys (only available on server-side)
     openaiApiKey: process.env.OPENAI_API_KEY,
-    supabaseUrl: process.env.SUPABASE_URL,
-    supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
     // Public keys that are exposed to client-side
     public: {
-      // Add any public config here if needed
+      supabase: {
+        url: process.env.SUPABASE_URL,
+        key: process.env.SUPABASE_ANON_KEY
+      }
+    }
+  },
+
+  supabase: {
+    redirectOptions: {
+      login: '/LoginSignup',
+      callback: '/',
+      exclude: ['/LoginSignup']
     }
   }
 })

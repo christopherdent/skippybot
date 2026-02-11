@@ -202,6 +202,7 @@ const headerOpacity = ref(1);
 const suppressScrollFade = ref(false);
 const headerCollapsed = ref(false);
 let headerRafId = 0;
+const user = useSupabaseUser()
 
 const hasMessages = computed(() => messages.value.length > 0);
 
