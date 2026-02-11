@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import { serverSupabaseClient } from '../utils/supabaseClient'
+import { serverSupabaseAdminClient } from '../utils/supabaseAdminClient'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -56,23 +57,61 @@ Never say "as an AI" or “I am just a language model.” You are Skippy — for
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const { message, conversationId } = body
+  const { message, conversationId, attachments } = body
 
-  if (!message || !conversationId) {
+  const hasText = typeof message === 'string' && message.trim().length > 0
+  const hasAttachments = Array.isArray(attachments) && attachments.length > 0
+
+  if (!conversationId || (!hasText && !hasAttachments)) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Missing conversationId or message',
+      statusMessage: 'Missing conversationId or content',
     })
   }
 
   // 1. Save user message
-  await serverSupabaseClient
+  const { data: userChat, error: userChatError } = await serverSupabaseClient
     .from('chats')
     .insert({
       session_id: conversationId,
       role: 'user',
-      content: message,
+      content: message || '',
     })
+    .select('id')
+    .single()
+
+  if (userChatError) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Failed to save message',
+    })
+  }
+
+  if (hasAttachments) {
+    const insertRows = attachments
+      .filter((att) => att?.storagePath)
+      .map((att) => ({
+        chat_id: userChat.id,
+        conversation_id: conversationId,
+        role: 'user',
+        storage_bucket: att.bucket || 'chat-images',
+        storage_path: att.storagePath,
+        mime_type: att.mimeType || 'application/octet-stream',
+        size_bytes: att.sizeBytes || 0,
+        width: att.width ?? null,
+        height: att.height ?? null
+      }))
+
+    if (insertRows.length) {
+      const { error: attachmentError } = await serverSupabaseClient
+        .from('chat_attachments')
+        .insert(insertRows)
+
+      if (attachmentError) {
+        console.error('Failed to save attachments:', attachmentError)
+      }
+    }
+  }
 
 
   const memorySessionId = 'restored_memory';
@@ -115,14 +154,51 @@ export default defineEventHandler(async (event) => {
   //   { role: 'user', content: message },
   // ];
 
+  interface ChatContentPart {
+    type: 'text' | 'image_url'
+    text?: string
+    image_url?: { url: string }
+  }
+
   interface ChatMessage {
     role: 'system' | 'user' | 'assistant'
-    content: string
+    content: string | ChatContentPart[]
   }
 
   interface RelatedMemory {
     role: 'user' | 'assistant'
     content: string
+  }
+
+  const userContentParts: ChatContentPart[] = []
+  if (hasText) {
+    userContentParts.push({ type: 'text', text: message.trim() })
+  }
+
+  if (hasAttachments) {
+    const signedUrls = await Promise.all(
+      attachments.map(async (att) => {
+        if (!att?.storagePath) return null
+        const bucket = att.bucket || 'chat-images'
+        const { data, error } = await serverSupabaseAdminClient.storage
+          .from(bucket)
+          .createSignedUrl(att.storagePath, 300)
+        if (error || !data?.signedUrl) return null
+        return data.signedUrl
+      })
+    )
+
+    signedUrls.filter(Boolean).forEach((url) => {
+      userContentParts.push({ type: 'image_url', image_url: { url } })
+    })
+  }
+
+  const normalizedHistory = Array.isArray(chatHistory) ? [...chatHistory] : []
+  if (normalizedHistory.length) {
+    const last = normalizedHistory[normalizedHistory.length - 1]
+    if (last?.role === 'user' && last?.content === (message || '')) {
+      normalizedHistory.pop()
+    }
   }
 
   const messages: ChatMessage[] = [
@@ -132,8 +208,11 @@ export default defineEventHandler(async (event) => {
       content: m.content
     })) || []),
     ...(archiveChats || []),
-    ...(chatHistory || []),
-    { role: 'user', content: message },
+    ...normalizedHistory,
+    {
+      role: 'user',
+      content: userContentParts.length ? userContentParts : (message || '')
+    },
   ]
 
 
@@ -170,11 +249,49 @@ export default defineEventHandler(async (event) => {
     .single()
 
   if (!conversation || !conversation.title || conversation.title.trim() === '') {
-    const title = message
-      .trim()
-      .split(/\s+/)
-      .slice(0, 7)
-      .join(' ')
+    let title = ''
+    try {
+      const { data: firstTwo } = await serverSupabaseClient
+        .from('chats')
+        .select('role, content')
+        .eq('session_id', conversationId)
+        .order('created_at', { ascending: true })
+        .limit(2)
+
+      const firstTwoText = (firstTwo || [])
+        .map((m) => `${m.role}: ${m.content}`)
+        .join('\n')
+
+      if (firstTwoText.trim()) {
+        const titleResponse = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Generate a concise 3-7 word title summarizing the conversation based on the first two messages. No quotes. No trailing punctuation.'
+            },
+            {
+              role: 'user',
+              content: firstTwoText
+            }
+          ]
+        })
+
+        title =
+          titleResponse.choices?.[0]?.message?.content?.trim().replace(/[.?!]+$/, '') || ''
+      }
+    } catch (err) {
+      console.error('Failed to generate title:', err)
+    }
+
+    if (!title) {
+      title = message
+        .trim()
+        .split(/\s+/)
+        .slice(0, 7)
+        .join(' ')
+    }
 
     await serverSupabaseClient
       .from('conversations')
