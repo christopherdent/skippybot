@@ -6,7 +6,8 @@ const signInWithGoogle = async () => {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: window.location.origin
+      redirectTo: 'https://skippybot-ok.vercel.app/LoginSignup'
+      // redirectTo: window.location.origin
     }
   })
   if (error) console.error('Login error:', error)
