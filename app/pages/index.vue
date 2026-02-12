@@ -4,6 +4,15 @@
     @touchstart="handleTouchStart"
     @touchend="handleTouchEnd"
   >
+    <UButton
+      v-if="user"
+      class="fixed right-3 top-3 z-50 md:right-6 md:top-4"
+      :loading="isSigningOut"
+      @click="signOut"
+    >
+      Logout
+    </UButton>
+
     <!-- Mobile header -->
     <header class="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/95 px-4 py-3 md:hidden">
       <button
@@ -201,8 +210,10 @@ const showSwipeHint = ref(false);
 const headerOpacity = ref(1);
 const suppressScrollFade = ref(false);
 const headerCollapsed = ref(false);
+const isSigningOut = ref(false);
 let headerRafId = 0;
 const user = useSupabaseUser()
+const supabase = useSupabaseClient()
 
 const hasMessages = computed(() => messages.value.length > 0);
 
@@ -268,6 +279,23 @@ const openSidebar = () => {
 
 const dismissSwipeHint = () => {
   showSwipeHint.value = false;
+};
+
+const signOut = async () => {
+  if (isSigningOut.value) return;
+
+  isSigningOut.value = true;
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      throw error;
+    }
+    await navigateTo('/LoginSignup');
+  } catch (error) {
+    console.error('Failed to sign out:', error);
+  } finally {
+    isSigningOut.value = false;
+  }
 };
 
 

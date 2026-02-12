@@ -28,6 +28,7 @@ export default defineNuxtConfig({
     openaiApiKey: process.env.OPENAI_API_KEY,
     // Public keys that are exposed to client-side
     public: {
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ''),
       supabase: {
         url: process.env.SUPABASE_URL,
         key: process.env.SUPABASE_ANON_KEY

@@ -1,13 +1,26 @@
 <script setup>
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
+const runtimeConfig = useRuntimeConfig()
+
+const getOAuthRedirectUrl = () => {
+  const configuredSiteUrl = runtimeConfig.public.siteUrl?.trim()
+  if (configuredSiteUrl) {
+    try {
+      return new URL('/LoginSignup', configuredSiteUrl).toString()
+    } catch (error) {
+      console.error('Invalid NUXT_PUBLIC_SITE_URL. Falling back to current origin.', error)
+    }
+  }
+
+  return `${window.location.origin}/LoginSignup`
+}
 
 const signInWithGoogle = async () => {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: 'https://skippybot-ok.vercel.app/LoginSignup'
-      // redirectTo: window.location.origin
+      redirectTo: getOAuthRedirectUrl()
     }
   })
   if (error) console.error('Login error:', error)
