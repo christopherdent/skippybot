@@ -1,60 +1,62 @@
-# Nuxt Starter Template
+## TODOS
 
-[![Nuxt UI](https://img.shields.io/badge/Made%20with-Nuxt%20UI-00DC82?logo=nuxt&labelColor=020420)](https://ui.nuxt.com)
+- README
+- Sticky memory for primary user.
+- Public demo mode (see below)
 
-Use this template to get started with [Nuxt UI](https://ui.nuxt.com) quickly.
+  Right now history is effectively global:
+  - server/api/conversations/index.get.ts:5 returns all conversations.
+  - server/api/chats.get.ts:12 reads chats by conversationId without ownership checks.
+  - server/api/chat.ts:120 always pulls your archive (personal-research-dump) and server/api/chat.ts:141 does
+    memory retrieval across chats.
 
-- [Live demo](https://starter-template.nuxt.dev/)
-- [Documentation](https://ui.nuxt.com/docs/getting-started/installation/nuxt)
+  So I’d call it medium effort, not hard:
 
-<a href="https://starter-template.nuxt.dev/" target="_blank">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png">
-    <img alt="Nuxt Starter Template" src="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png">
-  </picture>
-</a>
+  1. Add a demo/user scope check on conversation + chat routes.
+  2. Ensure demo users only see conversations they created.
+  3. Disable personal archive/memory injection for demo users (or they can still infer your history).
 
-> The starter template for Vue is on https://github.com/nuxt-ui-templates/starter-vue.
+✔ You approved codex to run node --input-type=module -e "import 'dotenv/config'; import { createClient } ...
 
-## Quick Start
+• Ran node --input-type=module -e "import 'dotenv/config'; import { createClient } from '@supabase/
+  │ process.env.SUPABASE_ANON_KEY); const run=async()=>{ const {data,error}=await
+  └ ERR conversations TypeError: fetch failed
 
-```bash [Terminal]
-npm create nuxt@latest -- -t github:nuxt-ui-templates/starter
-```
 
-## Deploy your own
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-name=starter&repository-url=https%3A%2F%2Fgithub.com%2Fnuxt-ui-templates%2Fstarter&demo-image=https%3A%2F%2Fui.nuxt.com%2Fassets%2Ftemplates%2Fnuxt%2Fstarter-dark.png&demo-url=https%3A%2F%2Fstarter-template.nuxt.dev%2F&demo-title=Nuxt%20Starter%20Template&demo-description=A%20minimal%20template%20to%20get%20started%20with%20Nuxt%20UI.)
+  1. Add an owner constant/env.
+  - Create OWNER_EMAIL=christopherdent01@gmail.com in server env.
 
-## Setup
+  2. Get the authenticated user in every API route (server-side, not from client input).
 
-Make sure to install the dependencies:
+  - Compute isOwner = user.email?.toLowerCase() === OWNER_EMAIL.
+  3. Add conversation ownership in DB.
 
-```bash
-pnpm install
-```
+  - Add owner_email text not null (or better owner_user_id uuid) to conversations.
+  - On create (server/api/conversations/index.post.ts), set owner_email to current user email.
+  4. Scope conversation list.
+  - In server/api/conversations/index.get.ts, filter by current user owner field.
 
-## Development Server
 
-Start the development server on `http://localhost:3000`:
+  - In server/api/chats.get.ts, first verify conversationId belongs to current user.
+  - In server/api/conversations/[id].delete.ts, verify ownership before delete.
+  - In server/api/uploads.post.ts, verify ownership before issuing signed upload URL.
 
-```bash
-pnpm dev
-```
+  6. Gate AI memory for demo users.
 
-## Production
+  - In server/api/chat.ts, if !isOwner:
+      - do not load personal-research-dump
+      - do not use global match_chats retrieval unless it’s user-scoped
+  - Keep normal behavior for owner.
 
-Build the application for production:
+  7. Optional UI signal.
 
-```bash
-pnpm build
-```
+  - Show a small “Demo mode” badge in app/pages/index.vue when logged-in email is not owner.
 
-Locally preview production build:
+  8. Quick manual test matrix.
 
-```bash
-pnpm preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+  - Owner account: existing behavior unchanged.
+  - Demo account A: can chat, sees only A’s conversations.
+  - Demo account B: cannot see A’s conversations.
+  - Demo account: no owner-memory leakage in replies.
+  - Delete/upload endpoints reject cross-user conversation IDs.
