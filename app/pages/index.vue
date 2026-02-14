@@ -6,6 +6,15 @@
   >
     <UButton
       v-if="user"
+      class="fixed right-24 top-3 z-50 md:right-28 md:top-4"
+      variant="soft"
+      @click="openMemoriesModal"
+    >
+      Memories
+    </UButton>
+
+    <UButton
+      v-if="user"
       class="fixed right-3 top-3 z-50 md:right-6 md:top-4"
       :loading="isSigningOut"
       @click="signOut"
@@ -212,6 +221,56 @@
         </div>
       </div>
     </main>
+
+    <div
+      v-if="showMemoriesModal"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+      @click="closeMemoriesModal"
+    >
+      <div
+        class="w-full max-w-2xl rounded-xl border border-gray-200 bg-white shadow-xl"
+        @click.stop
+      >
+        <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <h3 class="text-base font-semibold text-gray-900">Stored memories</h3>
+          <button
+            class="rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+            @click="closeMemoriesModal"
+          >
+            Close
+          </button>
+        </div>
+
+        <div class="max-h-[65vh] overflow-y-auto p-4">
+          <div v-if="isMemoriesLoading" class="text-sm text-gray-500">Loading memories...</div>
+          <div v-else-if="!memories.length" class="text-sm text-gray-500">No stored memories yet.</div>
+
+          <ul v-else class="space-y-2">
+            <li
+              v-for="memory in memories"
+              :key="memory.id"
+              class="rounded-lg border border-gray-200 bg-gray-50 p-3"
+            >
+              <div class="mb-2 text-xs text-gray-500">
+                {{ new Date(memory.created_at).toLocaleString() }}
+              </div>
+              <div class="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                {{ memory.content }}
+              </div>
+              <div class="mt-3 flex justify-end">
+                <button
+                  class="rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="deletingMemoryId === memory.id"
+                  @click="deleteMemory(memory.id)"
+                >
+                  {{ deletingMemoryId === memory.id ? 'Deleting...' : 'Delete memory' }}
+                </button>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -234,6 +293,10 @@ const suppressScrollFade = ref(false);
 const headerCollapsed = ref(false);
 const isSigningOut = ref(false);
 const isResponding = ref(false);
+const showMemoriesModal = ref(false);
+const memories = ref([]);
+const isMemoriesLoading = ref(false);
+const deletingMemoryId = ref(null);
 let headerRafId = 0;
 const HEADER_FADE_DISTANCE = 140;
 const HEADER_COLLAPSE_AT = 220;
@@ -305,6 +368,15 @@ const openSidebar = () => {
 
 const dismissSwipeHint = () => {
   showSwipeHint.value = false;
+};
+
+const openMemoriesModal = async () => {
+  showMemoriesModal.value = true;
+  await loadMemories();
+};
+
+const closeMemoriesModal = () => {
+  showMemoriesModal.value = false;
 };
 
 const signOut = async () => {
@@ -463,6 +535,32 @@ const loadConversations = async () => {
   } catch (err) {
     console.error('Failed to load conversations:', err);
     conversations.value = [];
+  }
+};
+
+const loadMemories = async () => {
+  isMemoriesLoading.value = true;
+  try {
+    const res = await $fetch('/api/memories');
+    memories.value = res.memories || [];
+  } catch (err) {
+    console.error('Failed to load memories:', err);
+    memories.value = [];
+  } finally {
+    isMemoriesLoading.value = false;
+  }
+};
+
+const deleteMemory = async (memoryId) => {
+  if (!memoryId || deletingMemoryId.value) return;
+  deletingMemoryId.value = memoryId;
+  try {
+    await $fetch(`/api/memories/${memoryId}`, { method: 'DELETE' });
+    memories.value = memories.value.filter((m) => m.id !== memoryId);
+  } catch (err) {
+    console.error('Failed to delete memory:', err);
+  } finally {
+    deletingMemoryId.value = null;
   }
 };
 

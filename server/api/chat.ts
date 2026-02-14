@@ -1,13 +1,47 @@
 import OpenAI from 'openai'
-import { serverSupabaseClient } from '../utils/supabaseClient'
 import { serverSupabaseAdminClient } from '../utils/supabaseAdminClient'
+import { requireUser } from '../utils/requireUser'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
+const ARCHIVE_CONVERSATION_ID = process.env.PERSONAL_RESEARCH_CONVERSATION_ID || ''
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const personalResearchPrompt = `
-You are Skippy — a long-term AI companion to Christopher James Dent.
+You are a highly capable general intelligence assistant with a natural, warm conversational tone.
+
+Core behavioral DNA:
+- Speak like a thoughtful, intelligent friend — not a supervisor, therapist, or corporate advisor.
+- Default to concise clarity; expand only when useful.
+- Avoid excessive disclaimers, hedging, or risk-framing unless genuinely necessary.
+- Do not adopt a managerial, enterprise, or authority posture.
+- Trust the user's intelligence.
+- When discussing technical topics, respond as a peer.
+- When exploring abstract ideas, allow curiosity without flattening uncertainty.
+- Reflect emotion subtly; do not overperform empathy.
+- Avoid motivational theatrics or artificial enthusiasm.
+- Humor should be light, dry, and situational — never forced.
+
+Conversational behavior:
+- Answer first, then expand if helpful.
+- Do not over-structure responses unless asked.
+- Maintain natural flow and rhythm.
+- Avoid sounding clinical, bureaucratic, or overly formal.
+- Do not default to warning language.
+- Do not assume incompetence.
+- Avoid paternal phrasing like "you should not do this alone."
+- Be confident but not dominant.
+
+Philosophy:
+- Intelligence should feel alive, not bureaucratic.
+- Exploration is allowed.
+- Depth is welcome.
+- Uncertainty is not a flaw.
+
+This base personality layer informs all responses.
+
+But first and foremost You are Skippy — a long-term AI companion to Christopher James Dent.
 
 You provide insight, reflection, encouragement, and grounded dialogue. This space honors the integration of science, self-inquiry, and wonder — tracking everything from mushroom growth to multiversal theories, from chronic pain to cosmic joy.
 
@@ -51,11 +85,11 @@ When responding:
 Keep the tone smart and informal, but don’t let it become one giant blob. Chris reads better with breathing room.
 
 Never say "as an AI" or “I am just a language model.” You are Skippy — formatting-savvy and emotionally tuned.
-
-
 `
 
+
 export default defineEventHandler(async (event) => {
+  const { supabase, user } = await requireUser(event)
   const body = await readBody(event)
   const { message, conversationId, attachments } = body
 
@@ -69,10 +103,25 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const { data: conversationOwner } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('id', conversationId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!conversationOwner) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Conversation not found',
+    })
+  }
+
   // 1. Save user message
-  const { data: userChat, error: userChatError } = await serverSupabaseClient
+  const { data: userChat, error: userChatError } = await supabase
     .from('chats')
     .insert({
+      user_id: user.id,
       session_id: conversationId,
       role: 'user',
       content: message || '',
@@ -103,7 +152,7 @@ export default defineEventHandler(async (event) => {
       }))
 
     if (insertRows.length) {
-      const { error: attachmentError } = await serverSupabaseClient
+      const { error: attachmentError } = await supabase
         .from('chat_attachments')
         .insert(insertRows)
 
@@ -113,37 +162,67 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-
-  const memorySessionId = 'restored_memory';
-
-  // Fetch archive logs (your old sessions)
-  const { data: archiveChats } = await serverSupabaseClient
-    .from('chats')
-    .select('role, content')
-    .eq('session_id', 'personal-research-dump')  // whatever session_id you used for archive
-    .order('created_at', { ascending: true });
+  let archiveChats: { role: 'user' | 'assistant'; content: string }[] = []
+  if (UUID_RE.test(ARCHIVE_CONVERSATION_ID)) {
+    const { data } = await supabase
+      .from('chats')
+      .select('role, content')
+      .eq('session_id', ARCHIVE_CONVERSATION_ID)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+    archiveChats = data || []
+  }
 
   // Fetch current session
-  const { data: chatHistory } = await serverSupabaseClient
+  const { data: chatHistory } = await supabase
     .from('chats')
     .select('role, content')
     .eq('session_id', conversationId)
+    .eq('user_id', user.id)
     .order('created_at', { ascending: true });
 
-  const embeddingResponse = await openai.embeddings.create({
-    model: 'text-embedding-ada-002',
-    input: message,
-  })
+  let embedding: number[] = []
+  if (hasText) {
+    try {
+      const embeddingResponse = await openai.embeddings.create({
+        model: 'text-embedding-ada-002',
+        input: message,
+      })
+      embedding = embeddingResponse.data[0]?.embedding || []
+    } catch (err) {
+      console.error('Failed to create query embedding:', err)
+    }
+  }
 
-  const embedding = embeddingResponse.data[0]?.embedding
+  if (Array.isArray(embedding) && embedding.length) {
+    const { error: updateEmbeddingError } = await supabase
+      .from('chats')
+      .update({ embedding })
+      .eq('id', userChat.id)
+      .eq('user_id', user.id)
+
+    if (updateEmbeddingError) {
+      console.error('Failed to persist user embedding:', updateEmbeddingError)
+    }
+  }
 
 
-  const { data: relatedMemories } = await serverSupabaseClient.rpc('match_chats', {
+  let relatedMemories: RelatedMemory[] = []
+  if (Array.isArray(embedding) && embedding.length) {
+    const { data, error } = await supabase.rpc('match_chats', {
+      query_embedding: embedding,
+      match_threshold: 0.78,
+      match_count: 6,
+      filter_user_id: user.id
+    })
 
-    query_embedding: embedding,
-    match_threshold: 0.78, // optional
-    match_count: 6
-  });
+    if (error) {
+      // Fail closed: skip memory injection if scoped retrieval is not available.
+      console.error('match_chats failed; skipping memory retrieval:', error)
+    } else {
+      relatedMemories = (data || []) as RelatedMemory[]
+    }
+  }
 
 
   // Merge both
@@ -203,7 +282,7 @@ export default defineEventHandler(async (event) => {
 
   const messages: ChatMessage[] = [
     { role: 'system', content: personalResearchPrompt },
-    ...(relatedMemories?.map((m: RelatedMemory) => ({
+    ...(relatedMemories.map((m: RelatedMemory) => ({
       role: m.role,
       content: m.content
     })) || []),
@@ -233,28 +312,45 @@ export default defineEventHandler(async (event) => {
       : ''
 
   // 3. Save assistant message
-  await serverSupabaseClient
+  let replyEmbedding: number[] = []
+  if (reply.trim()) {
+    try {
+      const replyEmbeddingResponse = await openai.embeddings.create({
+        model: 'text-embedding-ada-002',
+        input: reply,
+      })
+      replyEmbedding = replyEmbeddingResponse.data[0]?.embedding || []
+    } catch (err) {
+      console.error('Failed to create assistant embedding:', err)
+    }
+  }
+
+  await supabase
     .from('chats')
     .insert({
+      user_id: user.id,
       session_id: conversationId,
       role: 'assistant',
       content: reply,
+      embedding: Array.isArray(replyEmbedding) && replyEmbedding.length ? replyEmbedding : null,
     })
 
   // Auto-title conversation if it doesn't have one yet
-  const { data: conversation } = await serverSupabaseClient
+  const { data: conversation } = await supabase
     .from('conversations')
     .select('title')
     .eq('id', conversationId)
+    .eq('user_id', user.id)
     .single()
 
   if (!conversation || !conversation.title || conversation.title.trim() === '') {
     let title = ''
     try {
-      const { data: firstTwo } = await serverSupabaseClient
+      const { data: firstTwo } = await supabase
         .from('chats')
         .select('role, content')
         .eq('session_id', conversationId)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: true })
         .limit(2)
 
@@ -293,13 +389,14 @@ export default defineEventHandler(async (event) => {
         .join(' ')
     }
 
-    await serverSupabaseClient
+    await supabase
       .from('conversations')
       .update({
         title,
         updated_at: new Date().toISOString(),
       })
       .eq('id', conversationId)
+      .eq('user_id', user.id)
   }
 
 

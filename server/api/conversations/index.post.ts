@@ -1,14 +1,15 @@
-import { serverSupabaseClient } from "../../utils/supabaseClient";
+import { requireUser } from "../../utils/requireUser";
 
 
 
 export default defineEventHandler(async (event) => {
+  const { supabase, user } = await requireUser(event);
   const body = await readBody(event);
   const title = body?.title?.trim() || null;  // Use null instead of "Untitled Chat"
 
-  const { data, error } = await serverSupabaseClient
+  const { data, error } = await supabase
     .from("conversations")
-    .insert({ title })
+    .insert({ title, user_id: user.id })
     .select()
     .single();
 
