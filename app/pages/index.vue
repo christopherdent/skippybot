@@ -5,25 +5,25 @@
     @touchend="handleTouchEnd"
   >
     <!-- Mobile header -->
-    <header class="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/95 px-4 py-3 md:hidden">
-      <button
-        class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700"
-        @click="openSidebar"
-      >
-        Chats
-      </button>
-      <div class="text-sm font-semibold text-blue-700 truncate max-w-[55%]">
+    <header class="sticky top-0 z-30 border-b border-gray-200 bg-white/95 px-4 py-3 md:hidden">
+      <div class="mb-2 text-center text-sm font-semibold text-blue-700 truncate">
         {{ activeConversationTitle }}
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center justify-center gap-3">
         <button
-          class="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+          class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+          @click="openSidebar"
+        >
+          Chats
+        </button>
+        <button
+          class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
           @click="openMemoriesModal"
         >
           Memories
         </button>
         <button
-          class="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+          class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60"
           :disabled="isSigningOut"
           @click="signOut"
         >
@@ -150,8 +150,11 @@
         :style="{ opacity: headerOpacity }"
       >
         <div class="skippy-wordmark-wrap">
-          <div class="skippy-wordmark">SKIPPYBOT</div>
-          <div class="skippy-subtitle">Adaptive Companion Interface</div>
+          <img
+            src="/images/skippy-hero.png"
+            alt="Skippy logo"
+            class="skippy-banner transform-gpu"
+          />
         </div>
       </h1>
 
@@ -628,30 +631,16 @@ const handleScroll = () => {
 
 .skippy-wordmark-wrap {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
-  padding: 0.75rem 0;
+  padding: 0.5rem 0;
 }
 
-.skippy-wordmark {
-  font-family: var(--font-display);
-  font-size: clamp(1.75rem, 4.8vw, 2.35rem);
-  font-weight: 800;
-  letter-spacing: 0.22em;
-  line-height: 1;
-  color: #0f172a;
-  text-shadow: 0 1px 0 #fff, 0 8px 24px rgba(30, 64, 175, 0.15);
-}
-
-.skippy-subtitle {
-  font-family: var(--font-display);
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #334155;
+.skippy-banner {
+  width: min(100%, 98rem);
+  max-height: 18rem;
+  height: auto;
+  object-fit: contain;
 }
 
 .typing-dot {
