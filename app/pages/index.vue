@@ -130,7 +130,7 @@
     <!-- Main Chat -->
     <main class="flex-1 px-3 pb-3 pt-3 md:p-6 md:max-w-3xl md:mx-auto flex flex-col w-full min-h-0">
       <h1
-        class="sticky top-0 z-20 bg-gray-100/95 backdrop-blur overflow-hidden transition-[opacity,max-height,margin,padding] duration-300 will-change-[opacity]"
+        class="sticky top-0 z-20 bg-gray-100/95 backdrop-blur overflow-hidden transition-opacity duration-300 will-change-[opacity]"
         :class="headerCollapsed ? 'max-h-0 mb-0 py-0' : 'max-h-[55.2%] mb-4 py-2'"
         :style="{ opacity: headerOpacity }"
       >
@@ -146,34 +146,56 @@
       <div
         v-if="hasMessages"
         ref="scrollContainer"
-        class="flex-1 overflow-y-auto space-y-4 pb-28 md:pb-24"
+        class="flex-1 overflow-y-auto overflow-x-hidden space-y-4 pb-28 md:pb-24"
         @scroll="handleScroll"
       >
         <div
           v-for="(msg, index) in messages"
           :key="index"
-          class="space-y-1"
+          class="flex"
+          :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
         >
-          <div class="text-sm font-semibold">
-            {{ msg.role === 'user' ? 'You' : 'Skippy' }}
+          <div class="max-w-[82%] space-y-1">
+            <div
+              class="text-[11px] font-semibold text-gray-500 px-1"
+              :class="msg.role === 'user' ? 'text-right' : 'text-left'"
+            >
+              {{ msg.role === 'user' ? 'You' : 'Skippy' }}
+            </div>
+            <div
+              class="chat-bubble border p-3"
+              :class="msg.role === 'user'
+                ? 'bg-emerald-100 border-emerald-200 rounded-2xl rounded-br-md'
+                : 'bg-white border-gray-200 rounded-2xl rounded-bl-md'"
+            >
+              <MarkdownRenderer :content="msg.content" />
+            </div>
+            <div
+              v-if="msg.attachments?.length"
+              class="grid grid-cols-2 gap-2 sm:grid-cols-3"
+            >
+              <img
+                v-for="att in msg.attachments"
+                :key="att.id || att.storage_path"
+                :src="att.signed_url || att.url"
+                alt="Chat attachment"
+                class="h-28 w-full rounded-xl border border-gray-200 object-cover"
+                loading="lazy"
+                @load="handleAttachmentLoad(att)"
+              />
+            </div>
           </div>
-          <MarkdownRenderer
-            :content="msg.content"
-            class="rounded-md p-3"
-            :class="msg.role === 'user'
-              ? 'bg-blue-50 border border-blue-100'
-              : 'bg-white border border-gray-200'"
-          />
-          <div v-if="msg.attachments?.length" class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <img
-              v-for="att in msg.attachments"
-              :key="att.id || att.storage_path"
-              :src="att.signed_url || att.url"
-              alt="Chat attachment"
-              class="h-28 w-full rounded-md border border-gray-200 object-cover"
-              loading="lazy"
-              @load="handleAttachmentLoad(att)"
-            />
+        </div>
+        <div v-if="isResponding" class="flex justify-start">
+          <div class="max-w-[82%] space-y-1">
+            <div class="px-1 text-left text-[11px] font-semibold text-gray-500">Skippy</div>
+            <div class="chat-bubble rounded-2xl rounded-bl-md border border-gray-200 bg-white p-3">
+              <span class="inline-flex items-center gap-1" aria-label="Skippy is responding">
+                <span class="typing-dot" />
+                <span class="typing-dot" />
+                <span class="typing-dot" />
+              </span>
+            </div>
           </div>
         </div>
         <!-- 🔽 anchor for auto-scroll -->
@@ -211,7 +233,11 @@ const headerOpacity = ref(1);
 const suppressScrollFade = ref(false);
 const headerCollapsed = ref(false);
 const isSigningOut = ref(false);
+const isResponding = ref(false);
 let headerRafId = 0;
+const HEADER_FADE_DISTANCE = 140;
+const HEADER_COLLAPSE_AT = 220;
+const HEADER_EXPAND_AT = 8;
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
 
@@ -370,6 +396,7 @@ const sendMessage = async (payload) => {
   }];
 
   try {
+    isResponding.value = true;
     const res = await $fetch('/api/chat', {
       method: 'POST',
       body: {
@@ -391,6 +418,8 @@ const sendMessage = async (payload) => {
       role: 'assistant',
       content: '⚠️ Something went wrong.',
     }];
+  } finally {
+    isResponding.value = false;
   }
 };
 
@@ -460,13 +489,12 @@ const handleScroll = () => {
   headerRafId = requestAnimationFrame(() => {
     headerRafId = 0;
     const top = scrollContainer.value?.scrollTop || 0;
-    const fadeDistance = 140;
-    const next = top < 4 ? 1 : 1 - Math.min(top / fadeDistance, 1);
+    const next = top < 4 ? 1 : 1 - Math.min(top / HEADER_FADE_DISTANCE, 1);
     const clamped = Math.max(0, next);
-    // Hysteresis to prevent jitter around collapse threshold
-    if (!headerCollapsed.value && top > fadeDistance + 20) {
+    // Wide hysteresis prevents collapse/expand loops from layout shifts.
+    if (!headerCollapsed.value && top > HEADER_COLLAPSE_AT) {
       headerCollapsed.value = true;
-    } else if (headerCollapsed.value && top < fadeDistance - 20) {
+    } else if (headerCollapsed.value && top < HEADER_EXPAND_AT) {
       headerCollapsed.value = false;
     }
     const targetOpacity = headerCollapsed.value ? 0 : clamped;
@@ -477,3 +505,42 @@ const handleScroll = () => {
 };
 
 </script>
+
+<style scoped>
+.chat-bubble {
+  position: relative;
+  overflow: visible;
+  box-shadow:
+    0 6px 18px -10px rgba(15, 23, 42, 0.35),
+    0 2px 8px -6px rgba(15, 23, 42, 0.25);
+}
+
+.typing-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+  background-color: #64748b;
+  animation: typingPulse 1s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingPulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-0.125rem);
+  }
+}
+</style>

@@ -24,7 +24,7 @@ const renderedContent = computed(() => {
 })
 </script>
 
-<style scoped>
+<style>
 /* Optional GitHub-like styling, or use Tailwind/prose if preferred */
 .markdown-body {
   line-height: 1.6;
@@ -39,7 +39,41 @@ const renderedContent = computed(() => {
 
 .markdown-body ul,
 .markdown-body ol {
-  padding-left: 1.5em;
+  margin: 0.75em 0;
+  padding-left: 0;
+}
+
+.markdown-body li {
+  position: relative;
+  list-style: none;
+  padding-left: 1.4em;
+  margin: 0.25em 0;
+}
+
+.markdown-body ul li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #334155;
+  font-weight: 700;
+}
+
+.markdown-body ol {
+  counter-reset: item;
+}
+
+.markdown-body ol li {
+  counter-increment: item;
+}
+
+.markdown-body ol li::before {
+  content: counter(item) ".";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #334155;
+  font-weight: 700;
 }
 
 .markdown-body blockquote {
