@@ -8,6 +8,8 @@ const openai = new OpenAI({
 })
 const ARCHIVE_CONVERSATION_ID = process.env.PERSONAL_RESEARCH_CONVERSATION_ID || ''
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const CHAT_MATCH_THRESHOLD = 0.72
+const CHAT_MAX_RESULTS = 8
 const MEMORY_MATCH_THRESHOLD = 0.78
 const MEMORY_MAX_RESULTS = 6
 const MEMORY_DEDUPE_THRESHOLD = 0.92
@@ -203,6 +205,34 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  if (Array.isArray(embedding) && embedding.length) {
+    const { error: updateEmbeddingError } = await supabase
+      .from('chats')
+      .update({ embedding })
+      .eq('id', userChat.id)
+      .eq('user_id', user.id)
+
+    if (updateEmbeddingError) {
+      console.error('Failed to persist user chat embedding:', updateEmbeddingError)
+    }
+  }
+
+  let relatedChats: RelatedChat[] = []
+  if (Array.isArray(embedding) && embedding.length) {
+    const { data, error } = await supabase.rpc('match_chats', {
+      query_embedding: embedding,
+      match_threshold: CHAT_MATCH_THRESHOLD,
+      match_count: CHAT_MAX_RESULTS,
+      filter_user_id: user.id
+    })
+
+    if (error) {
+      console.error('match_chats failed; skipping chat-vector retrieval:', error)
+    } else {
+      relatedChats = ((data || []) as RelatedChat[]).filter((c) => String(c.id) !== String(userChat.id))
+    }
+  }
+
   let relatedMemories: RelatedMemory[] = []
   if (Array.isArray(embedding) && embedding.length) {
     const { data, error } = await supabase.rpc('match_memories', {
@@ -246,6 +276,13 @@ export default defineEventHandler(async (event) => {
     similarity?: number
   }
 
+  interface RelatedChat {
+    id: string | number
+    role: 'user' | 'assistant'
+    content: string
+    similarity?: number
+  }
+
   const userContentParts: ChatContentPart[] = []
   if (hasText) {
     userContentParts.push({ type: 'text', text: message.trim() })
@@ -279,6 +316,10 @@ export default defineEventHandler(async (event) => {
 
   const messages: ChatMessage[] = [
     { role: 'system', content: activeSystemPrompt },
+    ...(relatedChats.length ? [{
+      role: 'system' as const,
+      content: `Relevant prior conversation excerpts for this user:\n${relatedChats.map((c) => `- [${c.role}] ${c.content}`).join('\n')}\nUse these excerpts only when relevant and avoid repeating them verbatim.`,
+    }] : []),
     ...(relatedMemories.length ? [{
       role: 'system' as const,
       content: `Relevant long-term memories about this user:\n${relatedMemories.map((m) => `- ${m.content}`).join('\n')}\nUse these only when directly relevant.`,
@@ -413,6 +454,19 @@ If not worth storing, return {"should_store": false, "memory_text": ""}.`
   }
 
   // 3. Save assistant message
+  let replyEmbedding: number[] = []
+  if (reply.trim()) {
+    try {
+      const replyEmbeddingResponse = await openai.embeddings.create({
+        model: 'text-embedding-ada-002',
+        input: reply,
+      })
+      replyEmbedding = replyEmbeddingResponse.data[0]?.embedding || []
+    } catch (err) {
+      console.error('Failed to create assistant embedding:', err)
+    }
+  }
+
   await supabase
     .from('chats')
     .insert({
@@ -420,6 +474,7 @@ If not worth storing, return {"should_store": false, "memory_text": ""}.`
       session_id: conversationId,
       role: 'assistant',
       content: reply,
+      embedding: Array.isArray(replyEmbedding) && replyEmbedding.length ? replyEmbedding : null,
     })
 
   // Auto-title conversation if it doesn't have one yet
