@@ -4,24 +4,6 @@
     @touchstart="handleTouchStart"
     @touchend="handleTouchEnd"
   >
-    <UButton
-      v-if="user"
-      class="fixed right-24 top-3 z-50 md:right-28 md:top-4"
-      variant="soft"
-      @click="openMemoriesModal"
-    >
-      Memories
-    </UButton>
-
-    <UButton
-      v-if="user"
-      class="fixed right-3 top-3 z-50 md:right-6 md:top-4"
-      :loading="isSigningOut"
-      @click="signOut"
-    >
-      Logout
-    </UButton>
-
     <!-- Mobile header -->
     <header class="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/95 px-4 py-3 md:hidden">
       <button
@@ -33,12 +15,21 @@
       <div class="text-sm font-semibold text-blue-700 truncate max-w-[55%]">
         {{ activeConversationTitle }}
       </div>
-      <button
-        class="text-sm text-blue-600 hover:underline"
-        @click="createConversation"
-      >
-        + New
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          class="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+          @click="openMemoriesModal"
+        >
+          Memories
+        </button>
+        <button
+          class="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+          :disabled="isSigningOut"
+          @click="signOut"
+        >
+          {{ isSigningOut ? '...' : 'Logout' }}
+        </button>
+      </div>
     </header>
     <div
       v-if="showSwipeHint"
@@ -102,13 +93,28 @@
 
     <!-- Desktop sidebar -->
     <aside class="hidden h-screen w-72 border-r border-gray-200 bg-white p-4 md:flex md:flex-col overflow-hidden">
-      <div class="flex justify-between items-center mb-4">
+      <div class="mb-3 flex items-center justify-between">
         <h2 class="text-lg font-semibold tracking-tight">Chats</h2>
+      </div>
+      <div class="mb-4 flex items-center gap-2">
         <button
-          class="text-sm text-blue-600 hover:underline"
+          class="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
           @click="createConversation"
         >
           + New
+        </button>
+        <button
+          class="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+          @click="openMemoriesModal"
+        >
+          Memories
+        </button>
+        <button
+          class="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+          :disabled="isSigningOut"
+          @click="signOut"
+        >
+          {{ isSigningOut ? '...' : 'Logout' }}
         </button>
       </div>
 
@@ -143,13 +149,10 @@
         :class="headerCollapsed ? 'max-h-0 mb-0 py-0' : 'max-h-[55.2%] mb-4 py-2'"
         :style="{ opacity: headerOpacity }"
       >
-        <span class="inline-flex items-center justify-center gap-2">
-          <img
-            src="/images/skippy-banner.png"
-            alt="Skippy logo"
-            class="transform-gpu"
-          />
-        </span>
+        <div class="skippy-wordmark-wrap">
+          <div class="skippy-wordmark">SKIPPYBOT</div>
+          <div class="skippy-subtitle">Adaptive Companion Interface</div>
+        </div>
       </h1>
 
       <div
@@ -621,6 +624,34 @@ const handleScroll = () => {
   box-shadow:
     0 6px 18px -10px rgba(15, 23, 42, 0.35),
     0 2px 8px -6px rgba(15, 23, 42, 0.25);
+}
+
+.skippy-wordmark-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+}
+
+.skippy-wordmark {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4.8vw, 2.35rem);
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  color: #0f172a;
+  text-shadow: 0 1px 0 #fff, 0 8px 24px rgba(30, 64, 175, 0.15);
+}
+
+.skippy-subtitle {
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #334155;
 }
 
 .typing-dot {

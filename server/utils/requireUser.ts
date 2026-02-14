@@ -12,5 +12,11 @@ export async function requireUser(event: any) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  return { supabase, user: { id: userId } }
+  return {
+    supabase,
+    user: {
+      id: userId,
+      email: data.user.email || null,
+    }
+  }
 }

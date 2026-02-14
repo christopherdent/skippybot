@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import { serverSupabaseAdminClient } from '../utils/supabaseAdminClient'
 import { requireUser } from '../utils/requireUser'
+import { guestSystemPrompt } from '../prompts/guestSystemPrompt'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -11,6 +12,7 @@ const MEMORY_MATCH_THRESHOLD = 0.78
 const MEMORY_MAX_RESULTS = 6
 const MEMORY_DEDUPE_THRESHOLD = 0.92
 const MAX_STORED_MEMORIES = 500
+const OWNER_EMAIL = (process.env.OWNER_EMAIL || '').trim().toLowerCase()
 
 const personalResearchPrompt = `
 You are a highly capable general intelligence assistant with a natural, warm conversational tone.
@@ -94,6 +96,9 @@ Never say "as an AI" or “I am just a language model.” You are Skippy — for
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await requireUser(event)
+  const userEmail = (user.email || '').toLowerCase()
+  const isOwner = Boolean(OWNER_EMAIL && userEmail && userEmail === OWNER_EMAIL)
+  const activeSystemPrompt = isOwner ? personalResearchPrompt : guestSystemPrompt
   const body = await readBody(event)
   const { message, conversationId, attachments } = body
 
@@ -273,7 +278,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: personalResearchPrompt },
+    { role: 'system', content: activeSystemPrompt },
     ...(relatedMemories.length ? [{
       role: 'system' as const,
       content: `Relevant long-term memories about this user:\n${relatedMemories.map((m) => `- ${m.content}`).join('\n')}\nUse these only when directly relevant.`,

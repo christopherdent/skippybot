@@ -1,8 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&display=swap');
 @import "tailwindcss";
 @import "@nuxt/ui";
 
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
+  --font-display: 'Orbitron', sans-serif;
 
   --color-green-50: #EFFDF5;
   --color-green-100: #D9FBE8;
