@@ -171,7 +171,7 @@
       <div
         v-if="hasMessages"
         ref="scrollContainer"
-        class="flex-1 overflow-y-auto overflow-x-hidden space-y-4 pb-48 md:pb-24"
+        class="flex-1 overflow-y-auto overflow-x-hidden space-y-4 pb-48 md:pb-44"
         @scroll="handleScroll"
       >
         <div
