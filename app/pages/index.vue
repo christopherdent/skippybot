@@ -144,8 +144,18 @@
 
     <!-- Main Chat -->
     <main class="flex-1 px-3 pb-3 pt-3 md:p-6 md:max-w-3xl md:mx-auto flex flex-col w-full min-h-0">
+      <div v-if="!hasMessages" class="mb-4 md:hidden">
+        <div class="skippy-wordmark-wrap">
+          <img
+            src="/images/skippy-hero.png"
+            alt="Skippy logo"
+            class="skippy-banner transform-gpu"
+          />
+        </div>
+      </div>
+
       <h1
-        class="sticky top-0 z-20 bg-gray-100/95 backdrop-blur overflow-hidden transition-opacity duration-300 will-change-[opacity]"
+        class="sticky top-0 z-20 hidden bg-gray-100/95 backdrop-blur overflow-hidden transition-opacity duration-300 will-change-[opacity] md:block"
         :class="headerCollapsed ? 'max-h-0 mb-0 py-0' : 'max-h-[55.2%] mb-4 py-2'"
         :style="{ opacity: headerOpacity }"
       >
@@ -175,7 +185,14 @@
               class="text-[11px] font-semibold text-gray-500 px-1"
               :class="msg.role === 'user' ? 'text-right' : 'text-left'"
             >
-              {{ msg.role === 'user' ? 'You' : 'Skippy' }}
+              <span v-if="msg.role === 'user'">You</span>
+              <img
+                v-else
+                src="/images/skippy-logo.png"
+                alt="Skippy"
+                class="inline-block h-8 w-8 align-middle"
+              />
+              <span v-if="msg.role !== 'user'" class="ml-1 align-middle">Skippy</span>
             </div>
             <div
               class="chat-bubble border p-3"
@@ -203,7 +220,14 @@
         </div>
         <div v-if="isResponding" class="flex justify-start">
           <div class="max-w-[82%] space-y-1">
-            <div class="px-1 text-left text-[11px] font-semibold text-gray-500">Skippy</div>
+            <div class="px-1 text-left text-[11px] font-semibold text-gray-500">
+              <img
+                src="/images/skippy-logo.png"
+                alt="Skippy"
+                class="inline-block h-8 w-8 align-middle"
+              />
+              <span class="ml-1 align-middle">Skippy</span>
+            </div>
             <div class="chat-bubble rounded-2xl rounded-bl-md border border-gray-200 bg-white p-3">
               <span class="inline-flex items-center gap-1" aria-label="Skippy is responding">
                 <span class="typing-dot" />
@@ -216,13 +240,19 @@
         <!-- 🔽 anchor for auto-scroll -->
         <div ref="bottomRef" />
       </div>
+      <div
+        v-else
+        class="flex-1 flex items-center justify-center px-4"
+      >
+        <h2 class="text-center text-3xl font-semibold tracking-tight text-slate-700">Hey Buddy!</h2>
+      </div>
 
       <div
         :class="hasMessages
           ? 'fixed inset-x-0 bottom-0 z-30 bg-gray-100/95 backdrop-blur border-t border-gray-200 pt-2 pb-[calc(env(safe-area-inset-bottom)+20px)] md:sticky md:inset-x-auto'
-          : 'flex-1 flex items-start justify-center bg-gray-100 pt-6 pb-[calc(env(safe-area-inset-bottom)+20px)]'"
+          : 'bg-gray-100 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-2'"
       >
-        <div :class="hasMessages ? 'mx-auto w-full max-w-3xl px-3 md:px-0' : 'w-full max-w-xl pl-6'">
+        <div :class="hasMessages ? 'mx-auto w-full max-w-3xl px-3 md:px-0' : 'mx-auto w-full max-w-3xl px-3 md:px-0'">
           <ChatInput :conversation-id="activeConversationId" @send="sendMessage" />
         </div>
       </div>

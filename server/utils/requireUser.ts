@@ -12,11 +12,18 @@ export async function requireUser(event: any) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
+  const authUser: any = data.user
+  const fallbackEmail =
+    authUser?.email ||
+    authUser?.user_metadata?.email ||
+    authUser?.identities?.[0]?.identity_data?.email ||
+    null
+
   return {
     supabase,
     user: {
       id: userId,
-      email: data.user.email || null,
+      email: typeof fallbackEmail === 'string' ? fallbackEmail.trim().toLowerCase() : null,
     }
   }
 }

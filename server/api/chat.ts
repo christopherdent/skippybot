@@ -96,7 +96,7 @@ Never say "as an AI" or “I am just a language model.” You are Skippy — for
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await requireUser(event)
-  const userEmail = (user.email || '').toLowerCase()
+  const userEmail = (user.email || '').trim().toLowerCase()
   const isOwner = Boolean(OWNER_EMAIL && userEmail && userEmail === OWNER_EMAIL)
   const activeSystemPrompt = isOwner ? personalResearchPrompt : guestSystemPrompt
   const body = await readBody(event)
