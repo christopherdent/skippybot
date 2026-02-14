@@ -10,12 +10,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const { data: existing } = await supabase
-    .from('chats')
+    .from('memories')
     .select('id')
     .eq('id', id)
     .eq('user_id', user.id)
-    .eq('role', 'user')
-    .not('embedding', 'is', null)
     .maybeSingle()
 
   if (!existing) {
@@ -23,8 +21,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const { error } = await supabase
-    .from('chats')
-    .update({ embedding: null })
+    .from('memories')
+    .delete()
     .eq('id', id)
     .eq('user_id', user.id)
 

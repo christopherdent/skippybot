@@ -7,6 +7,10 @@ const openai = new OpenAI({
 })
 const ARCHIVE_CONVERSATION_ID = process.env.PERSONAL_RESEARCH_CONVERSATION_ID || ''
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const MEMORY_MATCH_THRESHOLD = 0.78
+const MEMORY_MAX_RESULTS = 6
+const MEMORY_DEDUPE_THRESHOLD = 0.92
+const MAX_STORED_MEMORIES = 500
 
 const personalResearchPrompt = `
 You are a highly capable general intelligence assistant with a natural, warm conversational tone.
@@ -194,31 +198,18 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  if (Array.isArray(embedding) && embedding.length) {
-    const { error: updateEmbeddingError } = await supabase
-      .from('chats')
-      .update({ embedding })
-      .eq('id', userChat.id)
-      .eq('user_id', user.id)
-
-    if (updateEmbeddingError) {
-      console.error('Failed to persist user embedding:', updateEmbeddingError)
-    }
-  }
-
-
   let relatedMemories: RelatedMemory[] = []
   if (Array.isArray(embedding) && embedding.length) {
-    const { data, error } = await supabase.rpc('match_chats', {
+    const { data, error } = await supabase.rpc('match_memories', {
       query_embedding: embedding,
-      match_threshold: 0.78,
-      match_count: 6,
+      match_threshold: MEMORY_MATCH_THRESHOLD,
+      match_count: MEMORY_MAX_RESULTS,
       filter_user_id: user.id
     })
 
     if (error) {
       // Fail closed: skip memory injection if scoped retrieval is not available.
-      console.error('match_chats failed; skipping memory retrieval:', error)
+      console.error('match_memories failed; skipping memory retrieval:', error)
     } else {
       relatedMemories = (data || []) as RelatedMemory[]
     }
@@ -245,8 +236,9 @@ export default defineEventHandler(async (event) => {
   }
 
   interface RelatedMemory {
-    role: 'user' | 'assistant'
+    id: string
     content: string
+    similarity?: number
   }
 
   const userContentParts: ChatContentPart[] = []
@@ -282,10 +274,10 @@ export default defineEventHandler(async (event) => {
 
   const messages: ChatMessage[] = [
     { role: 'system', content: personalResearchPrompt },
-    ...(relatedMemories.map((m: RelatedMemory) => ({
-      role: m.role,
-      content: m.content
-    })) || []),
+    ...(relatedMemories.length ? [{
+      role: 'system' as const,
+      content: `Relevant long-term memories about this user:\n${relatedMemories.map((m) => `- ${m.content}`).join('\n')}\nUse these only when directly relevant.`,
+    }] : []),
     ...(archiveChats || []),
     ...normalizedHistory,
     {
@@ -311,20 +303,111 @@ export default defineEventHandler(async (event) => {
       ? completion.choices[0].message.content
       : ''
 
-  // 3. Save assistant message
-  let replyEmbedding: number[] = []
-  if (reply.trim()) {
+  if (hasText && message.trim()) {
     try {
-      const replyEmbeddingResponse = await openai.embeddings.create({
-        model: 'text-embedding-ada-002',
-        input: reply,
+      const extractionResponse = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        temperature: 0,
+        messages: [
+          {
+            role: 'system',
+            content: `Extract only durable, user-specific memory candidates.
+Return strict JSON with keys:
+{"should_store": boolean, "memory_text": string}
+
+Store only if the message contains long-term personal preferences, profile facts, ongoing projects/goals, or stable context likely useful later.
+Do not store fleeting details, generic requests, or sensitive info unless user explicitly asked to remember it.
+If not worth storing, return {"should_store": false, "memory_text": ""}.`
+          },
+          {
+            role: 'user',
+            content: message.trim()
+          }
+        ]
       })
-      replyEmbedding = replyEmbeddingResponse.data[0]?.embedding || []
+
+      const extractionRaw = extractionResponse.choices?.[0]?.message?.content || ''
+      let parsed: { should_store?: boolean; memory_text?: string } = {}
+      try {
+        parsed = JSON.parse(extractionRaw)
+      } catch {
+        const match = extractionRaw.match(/\{[\s\S]*\}/)
+        if (match) {
+          parsed = JSON.parse(match[0])
+        }
+      }
+
+      const shouldStore = parsed?.should_store === true
+      const memoryText = (parsed?.memory_text || '').trim()
+
+      if (shouldStore && memoryText) {
+        const memoryEmbeddingResponse = await openai.embeddings.create({
+          model: 'text-embedding-ada-002',
+          input: memoryText,
+        })
+        const memoryEmbedding = memoryEmbeddingResponse.data[0]?.embedding || []
+
+        if (Array.isArray(memoryEmbedding) && memoryEmbedding.length) {
+          let isDuplicate = false
+          const { data: nearMatches, error: dedupeError } = await supabase.rpc('match_memories', {
+            query_embedding: memoryEmbedding,
+            match_threshold: MEMORY_DEDUPE_THRESHOLD,
+            match_count: 1,
+            filter_user_id: user.id
+          })
+
+          if (dedupeError) {
+            console.error('match_memories dedupe check failed:', dedupeError)
+          } else if ((nearMatches || []).length > 0) {
+            isDuplicate = true
+          }
+
+          if (!isDuplicate) {
+            const { data: insertedMemory, error: insertMemoryError } = await supabase
+              .from('memories')
+              .insert({
+                user_id: user.id,
+                source_chat_id: userChat.id,
+                content: memoryText,
+                embedding: memoryEmbedding,
+              })
+              .select('id')
+              .single()
+
+            if (insertMemoryError) {
+              console.error('Failed to persist extracted memory:', insertMemoryError)
+            } else if (insertedMemory?.id) {
+              const { data: overflowMemories, error: overflowError } = await supabase
+                .from('memories')
+                .select('id')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .range(MAX_STORED_MEMORIES, MAX_STORED_MEMORIES + 500)
+
+              if (overflowError) {
+                console.error('Failed to inspect memory overflow:', overflowError)
+              } else if ((overflowMemories || []).length) {
+                const overflowIds = overflowMemories.map((m: { id: string }) => m.id)
+                const { error: pruneError } = await supabase
+                  .from('memories')
+                  .delete()
+                  .in('id', overflowIds)
+                  .eq('user_id', user.id)
+
+                if (pruneError) {
+                  console.error('Failed to prune old memories:', pruneError)
+                }
+              }
+            }
+          }
+        }
+      }
     } catch (err) {
-      console.error('Failed to create assistant embedding:', err)
+      console.error('Memory extraction failed:', err)
     }
   }
 
+  // 3. Save assistant message
   await supabase
     .from('chats')
     .insert({
@@ -332,7 +415,6 @@ export default defineEventHandler(async (event) => {
       session_id: conversationId,
       role: 'assistant',
       content: reply,
-      embedding: Array.isArray(replyEmbedding) && replyEmbedding.length ? replyEmbedding : null,
     })
 
   // Auto-title conversation if it doesn't have one yet

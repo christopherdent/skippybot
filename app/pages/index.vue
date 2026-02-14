@@ -303,6 +303,7 @@ const HEADER_COLLAPSE_AT = 220;
 const HEADER_EXPAND_AT = 8;
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
+const route = useRoute()
 
 const hasMessages = computed(() => messages.value.length > 0);
 
@@ -572,6 +573,15 @@ watch(messages, async () => {
 });
 onMounted(async () => {
   await loadConversations();
+
+  const isFreshLogin = route.query.new === '1' || route.query.new === 'true'
+  if (isFreshLogin) {
+    await createConversation()
+    const query = { ...route.query }
+    delete query.new
+    await navigateTo({ path: route.path, query }, { replace: true })
+    return
+  }
 
   if (conversations.value.length > 0) {
     activeConversationId.value = conversations.value[0].id;

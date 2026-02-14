@@ -2,6 +2,7 @@
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
 const runtimeConfig = useRuntimeConfig()
+const hadUserAtLoad = ref(false)
 
 const getOAuthRedirectUrl = () => {
   const configuredSiteUrl = runtimeConfig.public.siteUrl?.trim()
@@ -28,8 +29,12 @@ const signInWithGoogle = async () => {
 
 watchEffect(() => {
   if (user.value) {
-    navigateTo('/')
+    navigateTo(hadUserAtLoad.value ? '/' : '/?new=1')
   }
+})
+
+onMounted(() => {
+  hadUserAtLoad.value = Boolean(user.value)
 })
 </script>
 
