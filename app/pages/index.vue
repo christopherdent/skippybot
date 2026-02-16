@@ -4,32 +4,32 @@
     @touchstart="handleTouchStart"
     @touchend="handleTouchEnd"
   >
-    <UButton
-      v-if="user"
-      class="fixed right-3 top-3 z-50 md:right-6 md:top-4"
-      :loading="isSigningOut"
-      @click="signOut"
-    >
-      Logout
-    </UButton>
-
     <!-- Mobile header -->
-    <header class="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/95 px-4 py-3 md:hidden">
-      <button
-        class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700"
-        @click="openSidebar"
-      >
-        Chats
-      </button>
-      <div class="text-sm font-semibold text-blue-700 truncate max-w-[55%]">
+    <header class="sticky top-0 z-30 border-b border-gray-200 bg-white/95 px-4 py-3 md:hidden">
+      <div class="mb-2 text-center text-sm font-semibold text-blue-700 truncate">
         {{ activeConversationTitle }}
       </div>
-      <button
-        class="text-sm text-blue-600 hover:underline"
-        @click="createConversation"
-      >
-        + New
-      </button>
+      <div class="flex items-center justify-center gap-3">
+        <button
+          class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+          @click="openSidebar"
+        >
+          Chats
+        </button>
+        <button
+          class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+          @click="openMemoriesModal"
+        >
+          Memories
+        </button>
+        <button
+          class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+          :disabled="isSigningOut"
+          @click="signOut"
+        >
+          {{ isSigningOut ? '...' : 'Logout' }}
+        </button>
+      </div>
     </header>
     <div
       v-if="showSwipeHint"
@@ -93,13 +93,28 @@
 
     <!-- Desktop sidebar -->
     <aside class="hidden h-screen w-72 border-r border-gray-200 bg-white p-4 md:flex md:flex-col overflow-hidden">
-      <div class="flex justify-between items-center mb-4">
+      <div class="mb-3 flex items-center justify-between">
         <h2 class="text-lg font-semibold tracking-tight">Chats</h2>
+      </div>
+      <div class="mb-4 flex items-center gap-2">
         <button
-          class="text-sm text-blue-600 hover:underline"
+          class="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
           @click="createConversation"
         >
           + New
+        </button>
+        <button
+          class="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+          @click="openMemoriesModal"
+        >
+          Memories
+        </button>
+        <button
+          class="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+          :disabled="isSigningOut"
+          @click="signOut"
+        >
+          {{ isSigningOut ? '...' : 'Logout' }}
         </button>
       </div>
 
@@ -129,67 +144,169 @@
 
     <!-- Main Chat -->
     <main class="flex-1 px-3 pb-3 pt-3 md:p-6 md:max-w-3xl md:mx-auto flex flex-col w-full min-h-0">
+      <div v-if="!hasMessages" class="mb-4 md:hidden">
+        <div class="skippy-wordmark-wrap">
+          <img
+            src="/images/skippy-hero.png"
+            alt="Skippy logo"
+            class="skippy-banner transform-gpu"
+          />
+        </div>
+      </div>
+
       <h1
-        class="sticky top-0 z-20 bg-gray-100/95 backdrop-blur overflow-hidden transition-[opacity,max-height,margin,padding] duration-300 will-change-[opacity]"
+        class="sticky top-0 z-20 hidden bg-gray-100/95 backdrop-blur overflow-hidden transition-opacity duration-300 will-change-[opacity] md:block"
         :class="headerCollapsed ? 'max-h-0 mb-0 py-0' : 'max-h-[55.2%] mb-4 py-2'"
         :style="{ opacity: headerOpacity }"
       >
-        <span class="inline-flex items-center justify-center gap-2">
+        <div class="skippy-wordmark-wrap">
           <img
-            src="/images/skippy-banner.png"
+            src="/images/skippy-hero.png"
             alt="Skippy logo"
-            class="transform-gpu"
+            class="skippy-banner transform-gpu"
           />
-        </span>
+        </div>
       </h1>
 
       <div
         v-if="hasMessages"
         ref="scrollContainer"
-        class="flex-1 overflow-y-auto space-y-4 pb-28 md:pb-24"
+        class="flex-1 overflow-y-auto overflow-x-hidden space-y-4 pb-48 md:pb-44"
         @scroll="handleScroll"
       >
         <div
           v-for="(msg, index) in messages"
           :key="index"
-          class="space-y-1"
+          class="flex"
+          :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
         >
-          <div class="text-sm font-semibold">
-            {{ msg.role === 'user' ? 'You' : 'Skippy' }}
+          <div class="max-w-[82%] space-y-1">
+            <div
+              class="text-[11px] font-semibold text-gray-500 px-1"
+              :class="msg.role === 'user' ? 'text-right' : 'text-left'"
+            >
+              <span v-if="msg.role === 'user'">You</span>
+              <img
+                v-else
+                src="/images/skippy-logo.png"
+                alt="Skippy"
+                class="inline-block h-8 w-8 align-middle"
+              />
+              <span v-if="msg.role !== 'user'" class="ml-1 align-middle">Skippy</span>
+            </div>
+            <div
+              class="chat-bubble border p-3"
+              :class="msg.role === 'user'
+                ? 'bg-emerald-100 border-emerald-200 rounded-2xl rounded-br-md'
+                : 'bg-white border-gray-200 rounded-2xl rounded-bl-md'"
+            >
+              <MarkdownRenderer :content="msg.content" />
+            </div>
+            <div
+              v-if="msg.attachments?.length"
+              class="grid grid-cols-2 gap-2 sm:grid-cols-3"
+            >
+              <img
+                v-for="att in msg.attachments"
+                :key="att.id || att.storage_path"
+                :src="att.signed_url || att.url"
+                alt="Chat attachment"
+                class="h-28 w-full rounded-xl border border-gray-200 object-cover"
+                loading="lazy"
+                @load="handleAttachmentLoad(att)"
+              />
+            </div>
           </div>
-          <MarkdownRenderer
-            :content="msg.content"
-            class="rounded-md p-3"
-            :class="msg.role === 'user'
-              ? 'bg-blue-50 border border-blue-100'
-              : 'bg-white border border-gray-200'"
-          />
-          <div v-if="msg.attachments?.length" class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <img
-              v-for="att in msg.attachments"
-              :key="att.id || att.storage_path"
-              :src="att.signed_url || att.url"
-              alt="Chat attachment"
-              class="h-28 w-full rounded-md border border-gray-200 object-cover"
-              loading="lazy"
-              @load="handleAttachmentLoad(att)"
-            />
+        </div>
+        <div v-if="isResponding" class="flex justify-start">
+          <div class="max-w-[82%] space-y-1">
+            <div class="px-1 text-left text-[11px] font-semibold text-gray-500">
+              <img
+                src="/images/skippy-logo.png"
+                alt="Skippy"
+                class="inline-block h-8 w-8 align-middle"
+              />
+              <span class="ml-1 align-middle">Skippy</span>
+            </div>
+            <div class="chat-bubble rounded-2xl rounded-bl-md border border-gray-200 bg-white p-3">
+              <span class="inline-flex items-center gap-1" aria-label="Skippy is responding">
+                <span class="typing-dot" />
+                <span class="typing-dot" />
+                <span class="typing-dot" />
+              </span>
+            </div>
           </div>
         </div>
         <!-- 🔽 anchor for auto-scroll -->
         <div ref="bottomRef" />
       </div>
+      <div
+        v-else
+        class="flex-1 flex items-center justify-center px-4"
+      >
+        <h2 class="text-center text-3xl font-semibold tracking-tight text-slate-700">Hey Buddy!</h2>
+      </div>
 
       <div
         :class="hasMessages
           ? 'fixed inset-x-0 bottom-0 z-30 bg-gray-100/95 backdrop-blur border-t border-gray-200 pt-2 pb-[calc(env(safe-area-inset-bottom)+20px)] md:sticky md:inset-x-auto'
-          : 'flex-1 flex items-start justify-center bg-gray-100 pt-6 pb-[calc(env(safe-area-inset-bottom)+20px)]'"
+          : 'bg-gray-100 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-2'"
       >
-        <div :class="hasMessages ? 'mx-auto w-full max-w-3xl px-3 md:px-0' : 'w-full max-w-xl pl-6'">
+        <div :class="hasMessages ? 'mx-auto w-full max-w-3xl px-3 md:px-0' : 'mx-auto w-full max-w-3xl px-3 md:px-0'">
           <ChatInput :conversation-id="activeConversationId" @send="sendMessage" />
         </div>
       </div>
     </main>
+
+    <div
+      v-if="showMemoriesModal"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+      @click="closeMemoriesModal"
+    >
+      <div
+        class="w-full max-w-2xl rounded-xl border border-gray-200 bg-white shadow-xl"
+        @click.stop
+      >
+        <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <h3 class="text-base font-semibold text-gray-900">Stored memories</h3>
+          <button
+            class="rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+            @click="closeMemoriesModal"
+          >
+            Close
+          </button>
+        </div>
+
+        <div class="max-h-[65vh] overflow-y-auto p-4">
+          <div v-if="isMemoriesLoading" class="text-sm text-gray-500">Loading memories...</div>
+          <div v-else-if="!memories.length" class="text-sm text-gray-500">No stored memories yet.</div>
+
+          <ul v-else class="space-y-2">
+            <li
+              v-for="memory in memories"
+              :key="memory.id"
+              class="rounded-lg border border-gray-200 bg-gray-50 p-3"
+            >
+              <div class="mb-2 text-xs text-gray-500">
+                {{ new Date(memory.created_at).toLocaleString() }}
+              </div>
+              <div class="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                {{ memory.content }}
+              </div>
+              <div class="mt-3 flex justify-end">
+                <button
+                  class="rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="deletingMemoryId === memory.id"
+                  @click="deleteMemory(memory.id)"
+                >
+                  {{ deletingMemoryId === memory.id ? 'Deleting...' : 'Delete memory' }}
+                </button>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -211,9 +328,18 @@ const headerOpacity = ref(1);
 const suppressScrollFade = ref(false);
 const headerCollapsed = ref(false);
 const isSigningOut = ref(false);
+const isResponding = ref(false);
+const showMemoriesModal = ref(false);
+const memories = ref([]);
+const isMemoriesLoading = ref(false);
+const deletingMemoryId = ref(null);
 let headerRafId = 0;
+const HEADER_FADE_DISTANCE = 140;
+const HEADER_COLLAPSE_AT = 140;
+const HEADER_EXPAND_AT = 8;
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
+const route = useRoute()
 
 const hasMessages = computed(() => messages.value.length > 0);
 
@@ -279,6 +405,15 @@ const openSidebar = () => {
 
 const dismissSwipeHint = () => {
   showSwipeHint.value = false;
+};
+
+const openMemoriesModal = async () => {
+  showMemoriesModal.value = true;
+  await loadMemories();
+};
+
+const closeMemoriesModal = () => {
+  showMemoriesModal.value = false;
 };
 
 const signOut = async () => {
@@ -370,6 +505,7 @@ const sendMessage = async (payload) => {
   }];
 
   try {
+    isResponding.value = true;
     const res = await $fetch('/api/chat', {
       method: 'POST',
       body: {
@@ -391,6 +527,8 @@ const sendMessage = async (payload) => {
       role: 'assistant',
       content: '⚠️ Something went wrong.',
     }];
+  } finally {
+    isResponding.value = false;
   }
 };
 
@@ -437,6 +575,32 @@ const loadConversations = async () => {
   }
 };
 
+const loadMemories = async () => {
+  isMemoriesLoading.value = true;
+  try {
+    const res = await $fetch('/api/memories');
+    memories.value = res.memories || [];
+  } catch (err) {
+    console.error('Failed to load memories:', err);
+    memories.value = [];
+  } finally {
+    isMemoriesLoading.value = false;
+  }
+};
+
+const deleteMemory = async (memoryId) => {
+  if (!memoryId || deletingMemoryId.value) return;
+  deletingMemoryId.value = memoryId;
+  try {
+    await $fetch(`/api/memories/${memoryId}`, { method: 'DELETE' });
+    memories.value = memories.value.filter((m) => m.id !== memoryId);
+  } catch (err) {
+    console.error('Failed to delete memory:', err);
+  } finally {
+    deletingMemoryId.value = null;
+  }
+};
+
 watch(messages, async () => {
   await nextTick();
   if (bottomRef.value) {
@@ -445,6 +609,15 @@ watch(messages, async () => {
 });
 onMounted(async () => {
   await loadConversations();
+
+  const isFreshLogin = route.query.new === '1' || route.query.new === 'true'
+  if (isFreshLogin) {
+    await createConversation()
+    const query = { ...route.query }
+    delete query.new
+    await navigateTo({ path: route.path, query }, { replace: true })
+    return
+  }
 
   if (conversations.value.length > 0) {
     activeConversationId.value = conversations.value[0].id;
@@ -460,13 +633,12 @@ const handleScroll = () => {
   headerRafId = requestAnimationFrame(() => {
     headerRafId = 0;
     const top = scrollContainer.value?.scrollTop || 0;
-    const fadeDistance = 140;
-    const next = top < 4 ? 1 : 1 - Math.min(top / fadeDistance, 1);
+    const next = top < 4 ? 1 : 1 - Math.min(top / HEADER_FADE_DISTANCE, 1);
     const clamped = Math.max(0, next);
-    // Hysteresis to prevent jitter around collapse threshold
-    if (!headerCollapsed.value && top > fadeDistance + 20) {
+    // Wide hysteresis prevents collapse/expand loops from layout shifts.
+    if (!headerCollapsed.value && top > HEADER_COLLAPSE_AT) {
       headerCollapsed.value = true;
-    } else if (headerCollapsed.value && top < fadeDistance - 20) {
+    } else if (headerCollapsed.value && top < HEADER_EXPAND_AT) {
       headerCollapsed.value = false;
     }
     const targetOpacity = headerCollapsed.value ? 0 : clamped;
@@ -477,3 +649,56 @@ const handleScroll = () => {
 };
 
 </script>
+
+<style scoped>
+.chat-bubble {
+  position: relative;
+  overflow: visible;
+  box-shadow:
+    0 6px 18px -10px rgba(15, 23, 42, 0.35),
+    0 2px 8px -6px rgba(15, 23, 42, 0.25);
+}
+
+.skippy-wordmark-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.skippy-banner {
+  width: min(100%, 98rem);
+  max-height: 18rem;
+  height: auto;
+  object-fit: contain;
+}
+
+.typing-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+  background-color: #64748b;
+  animation: typingPulse 1s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingPulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-0.125rem);
+  }
+}
+</style>

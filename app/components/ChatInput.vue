@@ -18,7 +18,7 @@
       </div>
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
       <input
         ref="fileInput"
         type="file"
@@ -27,33 +27,54 @@
         class="hidden"
         @change="handleFiles"
       />
-      <UButton type="button" variant="ghost" @click="triggerFilePicker" aria-label="Add image">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="h-4 w-4"
+      <textarea
+        v-model="message"
+        placeholder="Ask Skippy something..."
+        rows="4"
+        class="w-full resize-y rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-blue-300 focus:bg-white"
+        @keydown="handleComposerKeydown"
+      />
+      <div class="mt-2 flex items-center justify-between">
+        <button
+          type="button"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-gray-100"
+          @click="triggerFilePicker"
+          aria-label="Add image"
         >
-          <path d="M21.44 11.05l-8.49 8.49a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95l-8.49 8.49a2 2 0 0 1-2.83-2.83l8.49-8.49" />
-        </svg>
-      </UButton>
-      <UInput
-        v-model="message"
-        placeholder="Ask Skippy something..."
-        class="hidden md:block flex-1"
-      />
-      <UTextarea
-        v-model="message"
-        placeholder="Ask Skippy something..."
-        :rows="2"
-        class="md:hidden flex-1"
-        @keydown.enter.exact.prevent="handleSubmit"
-      />
-      <UButton type="submit" :loading="isUploading">Send</UButton>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="h-4 w-4"
+          >
+            <path d="M21.44 11.05l-8.49 8.49a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95l-8.49 8.49a2 2 0 0 1-2.83-2.83l8.49-8.49" />
+          </svg>
+        </button>
+        <button
+          type="submit"
+          :disabled="isUploading || (!message.trim() && !pendingImages.length)"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Send message"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="h-4 w-4"
+          >
+            <path d="M22 2L11 13" />
+            <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+          </svg>
+        </button>
+      </div>
     </div>
   </form>
 </template>
@@ -73,6 +94,13 @@ const fileInput = ref(null)
 const pendingImages = ref([])
 
 const emit = defineEmits(['send'])
+
+const handleComposerKeydown = (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault()
+    handleSubmit()
+  }
+}
 
 const triggerFilePicker = () => {
   fileInput.value?.click()

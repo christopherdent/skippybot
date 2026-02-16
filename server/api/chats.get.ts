@@ -1,18 +1,31 @@
 // server/api/chats.get.ts
-import { serverSupabaseClient } from "../utils/supabaseClient";
 import { serverSupabaseAdminClient } from "../utils/supabaseAdminClient";
+import { requireUser } from "../utils/requireUser";
 
 export default defineEventHandler(async (event) => {
+  const { supabase, user } = await requireUser(event);
   const { conversationId } = getQuery(event);
 
   if (!conversationId) {
     return { chats: [] };
   }
 
-  const { data, error } = await serverSupabaseClient
+  const { data: convo } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("id", String(conversationId))
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!convo) {
+    return { chats: [] };
+  }
+
+  const { data, error } = await supabase
     .from("chats")
     .select("*")
-    .eq("session_id", conversationId)
+    .eq("session_id", String(conversationId))
+    .eq("user_id", user.id)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -25,7 +38,7 @@ export default defineEventHandler(async (event) => {
     return { chats: data };
   }
 
-  const { data: attachments, error: attachmentError } = await serverSupabaseClient
+  const { data: attachments, error: attachmentError } = await supabase
     .from("chat_attachments")
     .select("*")
     .in("chat_id", chatIds)
