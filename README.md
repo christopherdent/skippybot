@@ -252,12 +252,4 @@ Because sometimes you don’t just want answers.
 
 You want continuity.
 
----
-
-If you want, we can also:
-
-* Make a **public README** version (leaner, less personal)
-* Or a **developer-focused README** (more schema + RLS details)
-* Or a spicy “Skippy Prime Manifesto” version 😏
-
-This is good though. This feels real.
+ 
