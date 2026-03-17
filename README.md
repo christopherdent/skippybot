@@ -1,10 +1,3 @@
-Ohhh I love this. We are officially at “write the README like this thing is real and inevitable” stage. 😎
-
-Alright. Here’s a polished, public-facing `README.md` for **Skippybot** — blending technical clarity with just enough soul to feel intentional.
-
-You can paste this straight into your repo.
-
----
 
 # 🧠 Skippybot
 
